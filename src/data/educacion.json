@@ -1,0 +1,138 @@
+[
+  {
+    "id": "psa",
+    "categoria": "prostata",
+    "categoriaNombre": "Próstata & Prevención",
+    "titulo": "El Antígeno Prostático Específico (PSA): ¿Qué es y qué indica?",
+    "resumen": "Aprende qué mide este examen en sangre, qué factores pueden elevarlo y por qué no reemplaza la evaluación física completa.",
+    "imagen": "/assets/topics/psa.jpg",
+    "servicioId": 2,
+    "badge": "Diagnóstico en Sangre",
+    "puntosClave": [
+      "El PSA es una proteína producida por las células de la próstata para fluidificar el semen.",
+      "Un valor elevado no siempre indica cáncer: la hiperplasia prostática benigna, infecciones (prostatitis) o relaciones sexuales recientes pueden elevarlo.",
+      "Se complementa de manera indispensable con el examen físico de la próstata y la ecografía para una certeza diagnóstica superior al 95%.",
+      "Control recomendado anualmente a partir de los 45 años (o 40 con antecedentes familiares)."
+    ],
+    "recomendacion": "Si tu PSA ha salido alterado o tienes dudas sobre tus valores de laboratorio, consulta con el Dr. Lisandro para una correlación clínica precisa."
+  },
+  {
+    "id": "tacto-rectal",
+    "categoria": "prostata",
+    "categoriaNombre": "Próstata & Prevención",
+    "titulo": "El Tacto Rectal: ¿Sigue siendo necesario o ya quedó en el pasado?",
+    "resumen": "La verdad médica sobre este examen preventivo: por qué la tecnología moderna aún no lo ha sustituido por completo y cómo salva vidas.",
+    "imagen": "/assets/topics/tacto_rectal.jpg",
+    "servicioId": 2,
+    "badge": "Evaluación Clínica Esencial",
+    "puntosClave": [
+      "La ecografía mide volumen y forma, pero no puede palpar la dureza ni consistencia del tejido.",
+      "Más del 70% de los tumores prostáticos se originan en la zona periférica posterior de la glándula, accesible directamente al tacto.",
+      "Dura solamente entre 5 y 10 segundos.",
+      "Con lubricación adecuada y técnica profesional no genera dolor, únicamente una leve sensación pasajera de urgencia."
+    ],
+    "recomendacion": "Un chequeo oportuno de 10 segundos previene complicaciones graves y permite tratamientos con más del 98% de éxito curativo."
+  },
+  {
+    "id": "combo-3ecos",
+    "categoria": "prostata",
+    "categoriaNombre": "Evaluación Integral",
+    "titulo": "Evaluación Urológica Completa con 3 Ecos (Renal, Vesical y Prostático)",
+    "resumen": "Conoce el protocolo diagnóstico insignia del Dr. Lisandro Márquez: valoración de todo tu sistema urinario en una sola consulta.",
+    "imagen": "/assets/topics/evaluacion_3ecos.jpg",
+    "servicioId": 1,
+    "badge": "Protocolo Insignia",
+    "puntosClave": [
+      "Eco Renal Bilateral: Descarta cálculos (piedras), quistes, dilatación renal o tumores en ambos riñones.",
+      "Eco Vesical: Mide el grosor de las paredes de la vejiga y calcula el residuo postmiccional de orina.",
+      "Eco Prostático: Medición exacta en centímetros cúbicos del tamaño y grado de obstrucción de la próstata.",
+      "Todo en una misma sesión en Caracas (VidaMed), Guatire y Barlovento."
+    ],
+    "recomendacion": "Ideal para chequeo preventivo o pacientes con molestias urinarias que buscan un diagnóstico certero inmediato sin múltiples traslados."
+  },
+  {
+    "id": "hidrocele",
+    "categoria": "masculina",
+    "categoriaNombre": "Salud Masculina",
+    "titulo": "El Hidrocele: Aumento de Volumen Escrotal y Líquido Testicular",
+    "resumen": "¿Has notado hinchazón, aumento de tamaño o sensación de pesadez en la zona genital? Conoce cómo identificarlo y su tratamiento.",
+    "imagen": "/assets/topics/hidrocele.jpg",
+    "servicioId": 6,
+    "badge": "Afección Testicular",
+    "puntosClave": [
+      "Acumulación indolora de líquido transparente en la bolsa que rodea al testículo (túnica vaginal).",
+      "Síntomas: Bulto elástico en el escroto, sensación progresiva de peso al caminar o hacer ejercicio, aumento continuo de tamaño.",
+      "El diagnóstico se confirma de forma rápida e indolora con un Eco Testicular en el consultorio.",
+      "Tratamiento definitivo: Cirugía ambulatoria de mínima incisión que drena el líquido y extirpa la bolsa para que no vuelva a reaparecer."
+    ],
+    "recomendacion": "Cualquier cambio de volumen o bulto escrotal debe ser evaluado por el urólogo para descartar hernias inguinales o masas."
+  },
+  {
+    "id": "cistitis",
+    "categoria": "vias",
+    "categoriaNombre": "Vías Urinarias",
+    "titulo": "¿Cistitis Después de Tener Relaciones? Podría ser Cistitis Postcoital",
+    "resumen": "Ardor, molestias o ganas frecuentes de orinar horas después de la actividad sexual. Causas anatómicas y pautas de prevención.",
+    "imagen": "/assets/topics/cistitis.jpg",
+    "servicioId": 4,
+    "badge": "Urología Femenina y de Pareja",
+    "puntosClave": [
+      "La uretra femenina es corta y cercana a la zona vaginal; la fricción del coito puede irritar la mucosa o facilitar el ascenso de bacterias.",
+      "Pauta de oro preventiva: Orinar inmediatamente después del acto sexual para realizar un lavado mecánico natural.",
+      "Mantener hidratación abundante con agua a lo largo del día para evitar que la orina se concentre.",
+      "Si los episodios son reiterativos, se requiere valoración urológica para descartar estrecheces uretrales o divertículos."
+    ],
+    "recomendacion": "No te acostumbres a vivir con infecciones urinarias recurrentes; con el tratamiento adecuado se resuelven de forma definitiva."
+  },
+  {
+    "id": "pene-curvado",
+    "categoria": "masculina",
+    "categoriaNombre": "Salud Masculina",
+    "titulo": "¿Pene Curvado? Enfermedad de Peyronie vs. Curvatura Congénita",
+    "resumen": "Diferencias entre curvatura de nacimiento y adquirida en la adultez, sus causas, dolor durante la erección y tratamientos correctivos.",
+    "imagen": "/assets/topics/pene_curvado.jpg",
+    "servicioId": 5,
+    "badge": "Andrología Clínica",
+    "puntosClave": [
+      "Curvatura Congénita: Presente desde la juventud por asimetría natural de los cuerpos cavernosos sin dolor ni placas.",
+      "Enfermedad de Peyronie: Surge en la adultez tras microtraumatismos durante las relaciones que forman una placa fibrosa e inelástica.",
+      "Síntomas de alarma: Desviación progresiva, dolor al tener erecciones o dificultad para la penetración.",
+      "Opciones de tratamiento: Terapia médica oral, antioxidantes, ondas de choque y plastias quirúrgicas de enderezamiento que preservan la erección."
+    ],
+    "recomendacion": "El diagnóstico temprano en la fase inflamatoria permite frenar la curvatura antes de que requiera cirugía."
+  },
+  {
+    "id": "suelo-pelvico",
+    "categoria": "vias",
+    "categoriaNombre": "Vías Urinarias & Piso Pélvico",
+    "titulo": "Suelo Pélvico Débil e Incontinencia: Recupera tu Calidad de Vida",
+    "resumen": "Pérdidas involuntarias de orina al toser, reír o levantar peso. Nuevas opciones no invasivas para hombres y mujeres.",
+    "imagen": "/assets/topics/suelo_pelvico.jpg",
+    "servicioId": 7,
+    "badge": "Rehabilitación Pélvica",
+    "puntosClave": [
+      "El suelo pélvico es la red muscular que sostiene la vejiga, uretra y órganos pélvicos.",
+      "Puede debilitarse en mujeres por partos y menopausia, y en hombres tras cirugías prostáticas o con la edad.",
+      "Nuevas tecnologías de estimulación electromagnética de alta intensidad fortalecen la musculatura profunda sin dolor.",
+      "Elimina la necesidad de usar protectores y devuelve la confianza en la rutina diaria."
+    ],
+    "recomendacion": "La incontinencia urinaria tiene solución médica; una evaluación experta identifica el tipo de fuga y su mejor tratamiento."
+  },
+  {
+    "id": "calculos-renales",
+    "categoria": "rinones",
+    "categoriaNombre": "Riñones & Litiasis",
+    "titulo": "Cálculos Renales (Litiasis Urinaria): Pulverización con Láser Holmium",
+    "resumen": "El cólico nefrítico es uno de los dolores más agudos. Conoce cómo pulverizar los cálculos por vía endoscópica sin incisiones.",
+    "imagen": "/assets/topics/mitos_realidades.jpg",
+    "servicioId": 3,
+    "badge": "Cirugía Láser",
+    "puntosClave": [
+      "Los cálculos se forman por cristalización de sales minerales cuando la orina se concentra en exceso por baja ingesta de agua.",
+      "Síntomas de alerta: Dolor lumbar punzante irradiado a la ingle, orina con sangre (hematuria), náuseas e imposibilidad de hallar reposo.",
+      "Tratamiento con Láser Holmium: Se introduce una fibra láser microscópica a través de las vías naturales hasta pulverizar la piedra.",
+      "Sin cicatrices, sin cortes en la piel y con alta médica el mismo día o al día siguiente."
+    ],
+    "recomendacion": "Si presentas dolor lumbar recurrente o te diagnosticaron un cálculo, agenda para evaluar si califica para fragmentación láser."
+  }
+]

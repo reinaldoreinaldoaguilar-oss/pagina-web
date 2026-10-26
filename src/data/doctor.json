@@ -1,0 +1,38 @@
+{
+  "nombre": "Dr. Lisandro Márquez",
+  "titulo": "Cirujano General • Urólogo (UCV)",
+  "subtitulo": "Especialista en Urología, Próstata, Uretrocistoscopia, Riñones y Piso Pélvico",
+  "grados": [
+    "Médico Cirujano (UNERG)",
+    "Cirujano General (UCV)",
+    "Urólogo (UCV)"
+  ],
+  "lema": "Carpe diem, quam minimum credula postero",
+  "telefono": "+58 424 185 1027",
+  "telefono_display": "0424-1851027",
+  "whatsapp": "584241851027",
+  "email": "drlisandromarquez@gmail.com",
+  "instagram": "@dr.lisandromarquez",
+  "instagram_url": "https://www.instagram.com/dr.lisandromarquez/",
+  "foto_hero": "/assets/dr_lisandro_hero.jpg",
+  "foto_destacada": "/assets/dr_lisandro_featured.jpg",
+  "sedes": [
+    {
+      "ciudad": "Caracas",
+      "clinica": "Clínica VidaMed",
+      "descripcion": "Consultas urológicas especializadas, evaluación con 3 Ecos y procedimientos endourológicos."
+    },
+    {
+      "ciudad": "Guatire",
+      "clinica": "Clínica San Martín de Porres",
+      "unidad": "Unidad Urológica Dr. Gregorio Hernández",
+      "descripcion": "Diagnóstico integral de vías urinarias y cirugías urológicas ambulatorias."
+    },
+    {
+      "ciudad": "Barlovento",
+      "clinica": "Clínica Caucagua",
+      "descripcion": "Jornadas de atención urológica y chequeo prostático preventivo."
+    }
+  ],
+  "horarios": "Lunes a Sábado (Previa Cita / Turnos Mañana y Tarde)"
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "nombre": "Carlos Mendoza",
+    "tratamiento": "Tratamiento de Litiasis con Láser",
+    "estrellas": 5,
+    "texto": "Llegué a la consulta con el Dr. Lisandro por un cólico nefrítico terrible. Me realizó el eco en el consultorio, identificó el cálculo y me operó con láser en Caracas. Sin cortes, sin dolor y al día siguiente estaba en mi casa. Excelente profesional."
+  },
+  {
+    "id": 2,
+    "nombre": "Roberto Gómez",
+    "tratamiento": "Evaluación Completa + 3 Ecos",
+    "estrellas": 5,
+    "texto": "Tenía mucho temor con el chequeo de próstata. El Dr. Márquez me explicó todo con serenidad, me hizo el paquete completo con los 3 ecos y el examen duró solo segundos. La tranquilidad de saber que todo está bien no tiene precio."
+  },
+  {
+    "id": 3,
+    "nombre": "Alejandro Silva",
+    "tratamiento": "Cirugía Ambulatoria de Hidrocele",
+    "estrellas": 5,
+    "texto": "Fui atendido en la clínica en Guatire para una intervención de hidrocele. El doctor fue muy claro en cada paso del procedimiento. Recuperación rápida y atención de primera de principio a fin."
+  }
+]
