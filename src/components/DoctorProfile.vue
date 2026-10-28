@@ -12,7 +12,7 @@ import doctorData from '../data/doctor.json';
           <div class="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200 bg-slate-950">
             <img :src="doctorData.foto_destacada" 
                  :alt="doctorData.nombre" 
-                 class="w-full h-[480px] object-cover object-center" 
+                 class="w-full h-[500px] object-cover object-top" 
                  loading="lazy" />
             
             <div class="absolute bottom-4 inset-x-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-slate-200">

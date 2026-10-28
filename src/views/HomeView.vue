@@ -1,5 +1,6 @@
 <script setup>
 import Hero from '../components/Hero.vue';
+import DoctorQuoteSection from '../components/DoctorQuoteSection.vue';
 import Testimonials from '../components/Testimonials.vue';
 
 defineEmits(['openBooking']);
@@ -41,6 +42,9 @@ defineEmits(['openBooking']);
         </div>
       </div>
     </section>
+
+    <!-- Sección de la Frase del Doctor en Quirófano -->
+    <DoctorQuoteSection @openBooking="$emit('openBooking')" />
 
     <!-- Testimonios de Pacientes -->
     <Testimonials />

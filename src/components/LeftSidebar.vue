@@ -90,7 +90,7 @@ const isActive = (path) => {
           </div>
           <div class="flex flex-col min-w-0">
             <span class="text-sm font-extrabold text-slate-900 leading-tight truncate">Dr. L. Márquez</span>
-            <span class="text-[10px] font-bold text-sky-600 uppercase tracking-wide">Urólogo UCV</span>
+            <span class="text-[10px] font-bold text-sky-600 uppercase tracking-wide">Urólogo</span>
           </div>
         </router-link>
 

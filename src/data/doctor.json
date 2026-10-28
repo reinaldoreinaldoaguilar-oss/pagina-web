@@ -14,8 +14,9 @@
   "email": "drlisandromarquez@gmail.com",
   "instagram": "@dr.lisandromarquez",
   "instagram_url": "https://www.instagram.com/dr.lisandromarquez/",
-  "foto_hero": "/assets/dr_lisandro_hero.jpg",
-  "foto_destacada": "/assets/dr_lisandro_featured.jpg",
+  "foto_hero": "/assets/dr_lisandro_inicio.jpg",
+  "foto_destacada": "/assets/dr_lisandro_especialista.jpg",
+  "foto_frase": "/assets/dr_lisandro_quirofano_frase.jpg",
   "sedes": [
     {
       "ciudad": "Caracas",

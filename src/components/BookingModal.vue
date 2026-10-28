@@ -244,44 +244,55 @@ const downloadCalendar = () => {
             ✓
           </div>
           <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full uppercase">
-            Cita Médica Registrada
+            Solicitud Registrada en el Sistema
           </span>
           <h4 class="text-xl font-bold text-slate-900 mt-2 mb-1">
-            ¡Gracias, {{ confirmedData.nombre }}!
+            ¡Muchas gracias, {{ confirmedData.nombre }}!
           </h4>
-          <p class="text-xs text-slate-600 mb-5">
-            Tu cita ha sido guardada en la base de datos del consultorio del <strong>{{ doctorData.nombre }}</strong>.
+          <p class="text-xs text-slate-600 mb-4">
+            Su solicitud de cita ha sido guardada satisfactoriamente en el consultorio del <strong>{{ doctorData.nombre }}</strong>.
           </p>
+
+          <!-- Aviso Formal de Confirmación Posterior -->
+          <div class="bg-sky-50/90 border border-sky-200 rounded-2xl p-4 text-left text-xs text-slate-700 mb-4 flex items-start gap-3 shadow-2xs">
+            <div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0 text-base">
+              📩
+            </div>
+            <div class="leading-relaxed">
+              <strong class="text-sky-950 block font-bold text-xs mb-1">Próximo paso — Reconfirmación de su Cita:</strong>
+              En breve, el equipo de secretaría médica del Dr. Lisandro Márquez le enviará un mensaje formal vía WhatsApp o llamada telefónica al número <strong>{{ confirmedData.telefono }}</strong> para validar su turno, coordinar la hora exacta y hacerle llegar la dirección de la sede e indicaciones para su evaluación.
+            </div>
+          </div>
 
           <!-- Ticket -->
           <div class="bg-slate-50 border-2 border-dashed border-slate-200 p-4 rounded-xl text-left text-xs space-y-2 mb-5">
             <div class="flex justify-between border-b border-slate-200 pb-2">
-              <span class="text-slate-500">Código de Cita:</span>
+              <span class="text-slate-500">Código de Registro:</span>
               <strong class="text-sky-700 font-extrabold text-sm">#CITA-{{ confirmedData.citaId }}</strong>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-500">Servicio:</span>
+              <span class="text-slate-500">Servicio Clínico:</span>
               <strong class="text-slate-800">{{ confirmedData.servicio }}</strong>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-500">Fecha y Hora:</span>
+              <span class="text-slate-500">Fecha y Turno:</span>
               <strong class="text-slate-800">{{ confirmedData.fecha }} a las {{ confirmedData.hora }}</strong>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-500">Sede:</span>
+              <span class="text-slate-500">Sede de Consulta:</span>
               <strong class="text-slate-800">Caracas (VidaMed) / Guatire</strong>
             </div>
           </div>
 
           <div class="space-y-2.5">
-            <a :href="whatsappConfirmationLink" target="_blank" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md">
-              <span>💬</span> Confirmar Asistencia por WhatsApp
+            <a :href="whatsappConfirmationLink" target="_blank" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer">
+              <span>💬</span> Notificar Asistencia por WhatsApp Ahora
             </a>
-            <button type="button" @click="downloadCalendar" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-200">
+            <button type="button" @click="downloadCalendar" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-200 cursor-pointer">
               <span>📅</span> Descargar Recordatorio a Calendario (.ics)
             </button>
-            <button type="button" @click="$emit('close')" class="w-full py-2 text-sky-600 hover:underline text-xs font-semibold">
-              Finalizar y Volver
+            <button type="button" @click="$emit('close')" class="w-full py-2 text-sky-600 hover:underline text-xs font-semibold cursor-pointer">
+              Finalizar y Volver al Portal
             </button>
           </div>
         </div>
@@ -404,11 +415,20 @@ const downloadCalendar = () => {
               <textarea v-model="patient.notas" rows="2" placeholder="Indica si prefieres ser atendido en Caracas o Guatire, o describe tus síntomas..." class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"></textarea>
             </div>
 
+            <!-- Aviso Formal de Confirmación Posterior -->
+            <div class="bg-sky-50 border border-sky-200 p-3 rounded-xl text-xs text-slate-700 flex items-start gap-2.5">
+              <span class="text-sky-600 font-bold text-sm mt-0.5">ℹ️</span>
+              <div class="leading-relaxed">
+                <strong class="text-sky-950 block font-bold mb-0.5">Protocolo de Atención Médica:</strong>
+                Al presionar confirmar, su solicitud quedará registrada. En breve, nuestro personal de secretaría médica se comunicará con usted vía WhatsApp o llamada para validar formalmente su turno y brindarle las indicaciones previas para su consulta.
+              </div>
+            </div>
+
             <div class="flex justify-between pt-2">
-              <button type="button" @click="prevStep" class="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900">
+              <button type="button" @click="prevStep" class="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">
                 ← Volver
               </button>
-              <button type="button" @click="submitBooking" :disabled="loading" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50">
+              <button type="button" @click="submitBooking" :disabled="loading" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50 cursor-pointer">
                 {{ loading ? 'Registrando en PostgreSQL...' : '✅ Confirmar Cita Médica' }}
               </button>
             </div>

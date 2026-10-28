@@ -13,24 +13,12 @@ defineEmits(['openBooking']);
         <div class="lg:col-span-5 order-1">
           <div class="relative bg-white p-3 sm:p-4 rounded-3xl shadow-xl border border-sky-100 max-w-md mx-auto">
             
-            <!-- Marco de la Fotografía del Doctor -->
-            <div class="relative rounded-2xl overflow-hidden h-[420px] bg-slate-900 flex items-center justify-center">
+            <!-- Marco de la Fotografía Oficial del Doctor -->
+            <div class="relative rounded-2xl overflow-hidden aspect-square bg-sky-900 flex items-center justify-center shadow-inner">
               <img :src="doctorData.foto_hero" 
                    :alt="doctorData.nombre" 
                    class="w-full h-full object-cover object-center"
                    loading="eager" />
-              
-              <!-- Badge inferior de Consultorio Abierto con SVG Pulse -->
-              <div class="absolute bottom-3 inset-x-3 bg-slate-900/90 backdrop-blur-md text-white text-xs py-2.5 px-3.5 rounded-xl border border-white/10 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="relative flex h-2.5 w-2.5">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-                  </span>
-                  <span class="font-medium text-slate-200">Consultas en Caracas y Guatire</span>
-                </div>
-                <span class="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Activo</span>
-              </div>
             </div>
 
             <!-- Badge Superior UCV Flotante -->
@@ -42,6 +30,18 @@ defineEmits(['openBooking']);
                 <span class="text-[10px] font-extrabold text-slate-900 uppercase leading-none">Especialista</span>
                 <span class="text-[9px] font-semibold text-slate-500 uppercase leading-tight">Certificado</span>
               </div>
+            </div>
+
+            <!-- Barra Informativa de Consultorio Abierto -->
+            <div class="mt-3 bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="relative flex h-2.5 w-2.5">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                </span>
+                <span class="font-bold text-slate-700">Consultas en Caracas y Guatire</span>
+              </div>
+              <span class="text-[10px] font-extrabold text-sky-600 uppercase tracking-wider bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100">Activo</span>
             </div>
 
           </div>

@@ -12,8 +12,8 @@ const props = defineProps({
 const emit = defineEmits(['close', 'toast', 'loginSuccess', 'logoutSuccess']);
 
 const token = ref(localStorage.getItem('dr_lisandro_jwt_token') || '');
-const username = ref('admin');
-const password = ref('admin123');
+const username = ref('');
+const password = ref('');
 const loading = ref(false);
 
 const citas = ref([]);
@@ -34,12 +34,6 @@ watch(() => props.isOpen, (open) => {
     loadDashboardData();
   }
 });
-
-const autoFillDemo = () => {
-  username.value = 'admin';
-  password.value = 'admin123';
-  emit('toast', { msg: 'Credenciales de demostración cargadas', type: 'info' });
-};
 
 const handleLogin = async () => {
   loading.value = true;
@@ -63,14 +57,18 @@ const handleLogin = async () => {
       return;
     }
 
-    emit('toast', { msg: 'Credenciales incorrectas', type: 'danger' });
+    emit('toast', { msg: 'Credenciales médicas incorrectas', type: 'danger' });
   } catch (error) {
-    // Modo demo si backend está apagado
-    token.value = 'demo_token';
-    localStorage.setItem('dr_lisandro_jwt_token', 'demo_token');
-    emit('loginSuccess');
-    emit('toast', { msg: 'Modo demostración activo', type: 'info' });
-    loadMockData();
+    // Si el backend local no está corriendo, permitir acceso solo si coinciden las credenciales maestras
+    if (username.value === 'admin' && password.value === 'admin123') {
+      token.value = 'demo_token';
+      localStorage.setItem('dr_lisandro_jwt_token', 'demo_token');
+      emit('loginSuccess');
+      emit('toast', { msg: 'Sesión administrativa activa', type: 'info' });
+      loadMockData();
+    } else {
+      emit('toast', { msg: 'Usuario o contraseña médica incorrecta', type: 'danger' });
+    }
   } finally {
     loading.value = false;
   }
@@ -196,6 +194,163 @@ const exportCSV = () => {
   document.body.removeChild(link);
   emit('toast', { msg: 'Archivo CSV descargado con éxito', type: 'success' });
 };
+
+const downloadAssistantPDF = () => {
+  if (!citas.value.length) {
+    emit('toast', { msg: 'No hay citas registradas para generar el reporte.', type: 'warning' });
+    return;
+  }
+
+  const list = filteredCitas.value;
+  const fechaHoy = new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const horaEmision = new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+
+  const rowsHtml = list.map((c, i) => `
+    <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px; background-color: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+      <td style="padding: 10px 8px; font-weight: bold; color: #0284c7; text-align: center;">#${c.id}</td>
+      <td style="padding: 10px 8px; font-weight: bold; color: #0f172a; white-space: nowrap;">${c.fecha_hora}</td>
+      <td style="padding: 10px 8px;">
+        <strong style="color: #0f172a; display: block; font-size: 12px;">${c.paciente || 'Sin nombre'}</strong>
+        <span style="color: #64748b; font-size: 10px;">${c.correo || ''}</span>
+      </td>
+      <td style="padding: 10px 8px; font-family: monospace; font-size: 11px; color: #334155;">${c.telefono || 'Sin teléfono'}</td>
+      <td style="padding: 10px 8px; color: #334155; font-weight: 500;">${c.servicio || 'Consulta General'}</td>
+      <td style="padding: 10px 8px; text-align: center;">
+        <span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 10px; ${
+          c.estado === 'Confirmada' ? 'background: #dcfce7; color: #166534;' :
+          c.estado === 'Realizada' ? 'background: #e0f2fe; color: #075985;' :
+          c.estado === 'Cancelada' ? 'background: #fee2e2; color: #991b1b;' :
+          'background: #fef3c7; color: #92400e;'
+        }">
+          ${c.estado || 'Pendiente'}
+        </span>
+      </td>
+      <td style="padding: 10px 8px; border-left: 1px dashed #cbd5e1; width: 120px;">
+        <div style="height: 18px; border-bottom: 1px dotted #94a3b8;"></div>
+      </td>
+    </tr>
+  `).join('');
+
+  const reportHtml = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <title>Agenda Médica - Asistente Dr. Lisandro Márquez</title>
+      <style>
+        @page { size: letter landscape; margin: 12mm; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; padding: 15px; color: #0f172a; font-size: 12px; background: #ffffff; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid #0284c7; margin-bottom: 14px; }
+        .doc-title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; }
+        .doc-sub { font-size: 12px; color: #0284c7; font-weight: bold; margin-top: 3px; }
+        .meta-box { text-align: right; font-size: 11px; color: #475569; }
+        .badge-report { display: inline-block; background: #0f172a; color: #ffffff; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .summary-grid { display: flex; gap: 12px; margin-bottom: 14px; }
+        .summary-card { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; }
+        .summary-num { font-size: 16px; font-weight: 800; color: #0f172a; }
+        .summary-lbl { font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #0f172a; color: #ffffff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px; text-align: left; }
+        .signatures { display: flex; justify-content: space-between; margin-top: 35px; page-break-inside: avoid; }
+        .sig-block { width: 220px; text-align: center; border-top: 1px solid #94a3b8; padding-top: 6px; font-size: 11px; color: #475569; }
+        .notice { font-size: 9px; color: #94a3b8; text-align: center; margin-top: 18px; border-top: 1px solid #f1f5f9; padding-top: 8px; }
+        .no-print-bar { background: #0ea5e9; color: #ffffff; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; border-radius: 8px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25); }
+        @media print { .no-print-bar { display: none !important; } }
+      </style>
+    </head>
+    <body>
+      <div class="no-print-bar">
+        <span>📄 Reporte Oficial para Asistente / Secretaría Médica — Dr. Lisandro Márquez</span>
+        <button onclick="window.print()" style="background: #ffffff; color: #0284c7; border: none; padding: 7px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">
+          🖨️ Imprimir / Guardar como PDF
+        </button>
+      </div>
+
+      <div class="header">
+        <div>
+          <h1 class="doc-title">${doctorData.nombre}</h1>
+          <div class="doc-sub">Cirujano General (UCV) • Urólogo (UCV) • Especialista UNERG</div>
+          <div style="font-size: 10px; color: #64748b; margin-top: 4px;">
+            Sedes: Caracas (Clínica VidaMed) • Guatire • Barlovento | WhatsApp Citas: ${doctorData.telefono_display}
+          </div>
+        </div>
+        <div class="meta-box">
+          <div class="badge-report">HOJA DE CONTROL - ASISTENCIA MÉDICA</div>
+          <div><strong>Fecha:</strong> ${fechaHoy}</div>
+          <div><strong>Emisión:</strong> ${horaEmision} | Filtro: <em>${activeFilter.value.toUpperCase()}</em></div>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-num">${list.length}</div>
+          <div class="summary-lbl">Pacientes en Lista</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-num" style="color: #16a34a;">${list.filter(c => c.estado === 'Confirmada').length}</div>
+          <div class="summary-lbl">Confirmadas</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-num" style="color: #d97706;">${list.filter(c => c.estado === 'Pendiente' || !c.estado).length}</div>
+          <div class="summary-lbl">Pendientes por Validar</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-num" style="color: #0284c7;">${list.filter(c => c.estado === 'Realizada').length}</div>
+          <div class="summary-lbl">Consultas Realizadas</div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 45px; text-align: center;">Cita</th>
+            <th style="width: 110px;">Fecha y Hora</th>
+            <th style="width: 170px;">Paciente</th>
+            <th style="width: 115px;">Contacto</th>
+            <th>Servicio Clínico</th>
+            <th style="width: 90px; text-align: center;">Estado</th>
+            <th style="width: 120px; text-align: center;">Asistencia / Firma</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+
+      <div class="signatures">
+        <div class="sig-block">
+          <strong>Firma Secretaria / Asistente</strong><br>
+          <span style="font-size: 10px;">Recepción y Control de Turnos</span>
+        </div>
+        <div class="sig-block">
+          <strong>${doctorData.nombre}</strong><br>
+          <span style="font-size: 10px;">Firma y Sello Médico</span>
+        </div>
+      </div>
+
+      <div class="notice">
+        Documento médico administrativo de carácter confidencial. Conforme a las normas de ética médica y privacidad del paciente.
+      </div>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 400);
+        };
+      <\/script>
+    </body>
+    </html>
+  `;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.open();
+    win.document.write(reportHtml);
+    win.document.close();
+    emit('toast', { msg: 'Reporte para la asistente generado con éxito', type: 'success' });
+  } else {
+    emit('toast', { msg: 'Por favor permite las ventanas emergentes para ver el reporte', type: 'warning' });
+  }
+};
 </script>
 
 <template>
@@ -229,24 +384,17 @@ const exportCSV = () => {
 
         <form @submit.prevent="handleLogin" class="space-y-4 text-left">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Usuario:</label>
-            <input type="text" v-model="username" required class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
+            <label class="block text-xs font-bold text-slate-700 mb-1">Usuario Autorizado:</label>
+            <input type="text" v-model="username" required placeholder="Usuario del consultorio" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Contraseña:</label>
-            <input type="password" v-model="password" required class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
+            <label class="block text-xs font-bold text-slate-700 mb-1">Contraseña de Seguridad:</label>
+            <input type="password" v-model="password" required placeholder="••••••••" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
           </div>
 
-          <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex justify-between items-center text-xs text-emerald-800">
-            <span>💡 Demo: <strong>admin</strong> / <strong>admin123</strong></span>
-            <button type="button" @click="autoFillDemo" class="text-emerald-700 font-bold underline hover:text-emerald-900">
-              Autocompletar
-            </button>
-          </div>
-
-          <button type="submit" :disabled="loading" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50">
-            {{ loading ? 'Autenticando...' : 'Iniciar Sesión en el Panel' }}
+          <button type="submit" :disabled="loading" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50 cursor-pointer">
+            {{ loading ? 'Verificando credenciales...' : 'Ingresar al Sistema Médico' }}
           </button>
         </form>
       </div>
@@ -264,10 +412,13 @@ const exportCSV = () => {
           </div>
 
           <div class="flex items-center gap-2">
-            <button type="button" @click="loadDashboardData" class="px-3 py-1.5 bg-sky-50 text-sky-700 font-bold rounded-lg text-xs hover:bg-sky-100 transition border border-sky-200">
+            <button type="button" @click="downloadAssistantPDF" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+              <span>📄</span> Reporte PDF (Asistente)
+            </button>
+            <button type="button" @click="loadDashboardData" class="px-3 py-1.5 bg-sky-50 text-sky-700 font-bold rounded-lg text-xs hover:bg-sky-100 transition border border-sky-200 cursor-pointer">
               🔄 Actualizar Agenda
             </button>
-            <button type="button" @click="handleLogout" class="px-3 py-1.5 bg-rose-50 text-rose-700 font-bold rounded-lg text-xs hover:bg-rose-100 transition border border-rose-200">
+            <button type="button" @click="handleLogout" class="px-3 py-1.5 bg-rose-50 text-rose-700 font-bold rounded-lg text-xs hover:bg-rose-100 transition border border-rose-200 cursor-pointer">
               Cerrar Sesión
             </button>
           </div>
@@ -366,11 +517,11 @@ const exportCSV = () => {
         <div class="flex justify-between items-center pt-2 text-xs text-slate-500 flex-wrap gap-2">
           <span>* Los cambios se sincronizan en tiempo real con PostgreSQL.</span>
           <div class="flex gap-2">
-            <button type="button" @click="exportCSV" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition border border-slate-200">
-              📥 Exportar a CSV
+            <button type="button" @click="exportCSV" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition border border-slate-200 flex items-center gap-1.5 cursor-pointer">
+              <span>📥</span> Exportar CSV
             </button>
-            <button type="button" onclick="window.print()" class="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold rounded-lg transition border border-sky-200">
-              🖨️ Imprimir Agenda
+            <button type="button" @click="downloadAssistantPDF" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg transition shadow-sm border border-sky-600 flex items-center gap-1.5 cursor-pointer">
+              <span>📄</span> Descargar / Imprimir Reporte Asistente (PDF)
             </button>
           </div>
         </div>

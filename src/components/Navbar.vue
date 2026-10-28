@@ -37,9 +37,6 @@ defineEmits(['openBooking', 'openPortal']);
             <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight group-hover:text-sky-600 transition-colors">
               {{ doctorData.nombre }}
             </h1>
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
-              UCV
-            </span>
           </div>
           <p class="text-xs sm:text-sm font-medium text-slate-500 leading-tight">
             Cirujano General • Urólogo (UCV)
