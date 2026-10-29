@@ -135,6 +135,7 @@ const submitBooking = async () => {
     // 2. Guardar cita
     let citaId = null;
     const fechaHora = `${selectedDate.value} ${selectedTime.value}`;
+    const srvId = parseInt(selectedServiceId.value) || 1;
     try {
       const resC = await fetch(`${API_BASE_URL}/api/citas`, {
         method: 'POST',
@@ -142,15 +143,30 @@ const submitBooking = async () => {
         body: JSON.stringify({
           fecha_hora: fechaHora,
           paciente_id: pacienteId || 1,
-          servicio_id: parseInt(selectedServiceId.value) || 1
+          servicio_id: srvId
         })
       });
       if (resC.ok) {
         const dataC = await resC.json();
         citaId = dataC.id_cita;
+      } else {
+        // Si el servicio específico no existe en el catálogo antiguo, reintentar con servicio 1 garantizado
+        const resRetry = await fetch(`${API_BASE_URL}/api/citas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fecha_hora: fechaHora,
+            paciente_id: pacienteId || 1,
+            servicio_id: 1
+          })
+        });
+        if (resRetry.ok) {
+          const dataRetry = await resRetry.json();
+          citaId = dataRetry.id_cita;
+        }
       }
     } catch (e) {
-      citaId = Math.floor(1000 + Math.random() * 9000);
+      console.warn('Error al guardar cita:', e);
     }
 
     confirmedData.value = {
@@ -229,7 +245,13 @@ const downloadCalendar = () => {
       <!-- Header -->
       <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
         <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-          <span>📅</span> Agendar Cita con el Dr. Lisandro Márquez
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-sky-600">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          Agendar Cita con el Dr. Lisandro Márquez
         </h3>
         <button type="button" @click="$emit('close')" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">
           &times;
@@ -257,7 +279,10 @@ const downloadCalendar = () => {
           <!-- Aviso Formal de Confirmación Posterior -->
           <div class="bg-sky-50/90 border border-sky-200 rounded-2xl p-4 text-left text-xs text-slate-700 mb-4 flex items-start gap-3 shadow-2xs">
             <div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0 text-base">
-              📩
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
             </div>
             <div class="leading-relaxed">
               <strong class="text-sky-950 block font-bold text-xs mb-1">Próximo paso — Reconfirmación de su Cita:</strong>
@@ -287,10 +312,19 @@ const downloadCalendar = () => {
 
           <div class="space-y-2.5">
             <a :href="whatsappConfirmationLink" target="_blank" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer">
-              <span>💬</span> Notificar Asistencia por WhatsApp Ahora
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+              </svg>
+              Notificar Asistencia por WhatsApp Ahora
             </a>
             <button type="button" @click="downloadCalendar" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-200 cursor-pointer">
-              <span>📅</span> Descargar Recordatorio a Calendario (.ics)
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              Descargar Recordatorio a Calendario (.ics)
             </button>
             <button type="button" @click="$emit('close')" class="w-full py-2 text-sky-600 hover:underline text-xs font-semibold cursor-pointer">
               Finalizar y Volver al Portal
