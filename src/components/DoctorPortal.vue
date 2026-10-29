@@ -447,7 +447,7 @@ const downloadAssistantPDF = () => {
           </div>
           <div>
             <h3 class="text-sm font-bold block">{{ doctorData.nombre }}</h3>
-            <span class="text-[11px] text-sky-400 block font-semibold">Panel Administrativo Médico • Base de Datos PostgreSQL</span>
+            <span class="text-[11px] text-sky-400 block font-semibold">Panel Administrativo Médico</span>
           </div>
         </div>
 
@@ -493,7 +493,6 @@ const downloadAssistantPDF = () => {
               <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
               Sesión Activa
             </span>
-            <span class="text-xs text-slate-500">Sincronizado con PostgreSQL</span>
           </div>
 
           <div class="flex items-center gap-2">
@@ -743,8 +742,7 @@ const downloadAssistantPDF = () => {
         </div>
 
         <!-- Footer Utilities -->
-        <div class="flex justify-between items-center pt-2 text-xs text-slate-500 flex-wrap gap-2">
-          <span>* Los cambios se sincronizan en tiempo real con PostgreSQL.</span>
+        <div class="flex justify-end items-center pt-2 text-xs text-slate-500 flex-wrap gap-2">
           <div class="flex gap-2">
             <button type="button" @click="exportCSV" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition border border-slate-200 flex items-center gap-1.5 cursor-pointer">
               <svg class="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
