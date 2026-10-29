@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import doctorData from '../data/doctor.json';
 import fallbackServices from '../data/servicios.json';
+import countriesList from '../data/countries.json';
 import { API_BASE_URL } from '../config/api';
 
 const props = defineProps({
@@ -21,11 +22,40 @@ const step = ref(1);
 const selectedServiceId = ref(null);
 const selectedDate = ref('');
 const selectedTime = ref('');
+const selectedCountry = ref(countriesList[0]); // Por defecto: Venezuela (+58)
+const rawPhoneNumber = ref('');
 const patient = ref({
   nombre: '',
   telefono: '',
   correo: '',
   notas: ''
+});
+
+// Calcula el formato internacional final (ej: +58 4141234567)
+const formattedFullPhone = computed(() => {
+  if (!rawPhoneNumber.value || !rawPhoneNumber.value.trim()) return '';
+  let clean = rawPhoneNumber.value.trim();
+  const code = selectedCountry.value ? selectedCountry.value.code : '+58';
+
+  // Si ya tiene el signo +
+  if (clean.startsWith('+')) {
+    return clean;
+  }
+
+  // Si seleccionó Venezuela (+58) y comenzó por '0' (ej. 0414, 0424, 0412, etc.)
+  // removemos el cero inicial para convertir 0414 en +58 414...
+  if (code === '+58' && clean.startsWith('0')) {
+    clean = clean.substring(1);
+  }
+
+  // Si el usuario pegó el número con el código del país sin el + (ej. 584141234567)
+  const dialDigits = code.replace(/[^0-9]/g, '');
+  const onlyDigits = clean.replace(/[^0-9]/g, '');
+  if (dialDigits && onlyDigits.startsWith(dialDigits) && onlyDigits.length > dialDigits.length + 6) {
+    return `+${onlyDigits}`;
+  }
+
+  return `${code} ${clean}`;
 });
 
 const loading = ref(false);
@@ -45,6 +75,14 @@ watch(() => props.isOpen, (open) => {
   if (open) {
     step.value = 1;
     confirmedData.value = null;
+    rawPhoneNumber.value = '';
+    selectedCountry.value = countriesList[0];
+    patient.value = {
+      nombre: '',
+      telefono: '',
+      correo: '',
+      notas: ''
+    };
     if (props.preselectedServiceId) {
       selectedServiceId.value = props.preselectedServiceId;
     }
@@ -104,10 +142,13 @@ const prevStep = () => {
 };
 
 const submitBooking = async () => {
-  if (!patient.value.nombre.trim() || !patient.value.telefono.trim()) {
+  const fullPhone = formattedFullPhone.value;
+  if (!patient.value.nombre.trim() || !fullPhone.trim()) {
     emit('toast', { msg: 'Por favor completa tu nombre y número de teléfono/WhatsApp.', type: 'warning' });
     return;
   }
+
+  patient.value.telefono = fullPhone;
 
   loading.value = true;
   try {
@@ -120,7 +161,7 @@ const submitBooking = async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nombre: patient.value.nombre,
-          telefono: patient.value.telefono,
+          telefono: fullPhone,
           correo: patient.value.correo
         })
       });
@@ -172,7 +213,7 @@ const submitBooking = async () => {
     confirmedData.value = {
       citaId: citaId || Math.floor(1000 + Math.random() * 9000),
       nombre: patient.value.nombre,
-      telefono: patient.value.telefono,
+      telefono: fullPhone,
       servicio: selectedServiceName.value,
       fecha: selectedDate.value,
       hora: selectedTime.value
@@ -193,6 +234,7 @@ const whatsappConfirmationLink = computed(() => {
   const msg = encodeURIComponent(
     `¡Hola Dr. Lisandro Márquez! Acabo de registrar una cita médica en su página web:\n\n` +
     `👤 Paciente: ${c.nombre}\n` +
+    `📞 Teléfono / WhatsApp: ${c.telefono}\n` +
     `🩺 Servicio: ${c.servicio}\n` +
     `📅 Fecha: ${c.fecha}\n` +
     `⏰ Hora: ${c.hora}\n` +
@@ -307,6 +349,10 @@ const downloadCalendar = () => {
             <div class="flex justify-between">
               <span class="text-slate-500">Sede de Consulta:</span>
               <strong class="text-slate-800">Caracas (VidaMed) / Guatire</strong>
+            </div>
+            <div class="flex justify-between border-t border-slate-200/80 pt-2">
+              <span class="text-slate-500">Teléfono Registrado:</span>
+              <strong class="text-sky-700 font-mono font-bold">{{ confirmedData.telefono }}</strong>
             </div>
           </div>
 
@@ -434,14 +480,61 @@ const downloadCalendar = () => {
               <input type="text" v-model="patient.nombre" placeholder="Ej: Carlos Eduardo Mendoza" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Teléfono / WhatsApp con Barra Desplegable de Códigos Internacionales -->
               <div>
-                <label class="block text-xs font-bold text-slate-800 mb-1">Teléfono / WhatsApp: *</label>
-                <input type="tel" v-model="patient.telefono" placeholder="0424-1234567" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
+                <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                  <span>Teléfono / WhatsApp: *</span>
+                  <span class="text-[10px] text-slate-500 font-semibold">Código de País</span>
+                </label>
+
+                <div class="flex rounded-xl border border-slate-300 focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 overflow-hidden bg-white shadow-2xs transition">
+                  <!-- Selector Desplegable de País -->
+                  <div class="relative flex items-center bg-slate-50 hover:bg-slate-100 transition border-r border-slate-300 cursor-pointer shrink-0">
+                    <select
+                      v-model="selectedCountry"
+                      class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                      title="Selecciona el país y código internacional"
+                    >
+                      <option v-for="c in countriesList" :key="c.name + c.code" :value="c">
+                        {{ c.flag }} {{ c.name }} ({{ c.code }})
+                      </option>
+                    </select>
+
+                    <div class="flex items-center gap-1 px-2.5 py-2.5 text-xs sm:text-sm font-bold text-slate-800 pointer-events-none select-none">
+                      <span class="text-base leading-none">{{ selectedCountry.flag }}</span>
+                      <span class="font-mono text-slate-800 ml-0.5">{{ selectedCountry.code }}</span>
+                      <svg class="w-3.5 h-3.5 text-slate-400 stroke-current fill-none ml-1" viewBox="0 0 24 24" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <!-- Entrada del Número Local -->
+                  <input
+                    type="tel"
+                    v-model="rawPhoneNumber"
+                    :placeholder="selectedCountry.placeholder"
+                    class="w-full p-2.5 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden bg-white"
+                  />
+                </div>
+
+                <!-- Formato resultante internacional en tiempo real -->
+                <div class="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+                  <span v-if="rawPhoneNumber.trim()">
+                    Formato: <strong class="text-sky-700 font-mono font-bold">{{ formattedFullPhone }}</strong>
+                  </span>
+                  <span v-else class="text-slate-400">
+                    {{ selectedCountry.code === '+58' ? 'Ejemplo: 4141234567 o 04141234567' : 'Ejemplo: ' + selectedCountry.placeholder }}
+                  </span>
+                </div>
               </div>
+
+              <!-- Correo Electrónico -->
               <div>
                 <label class="block text-xs font-bold text-slate-800 mb-1">Correo Electrónico:</label>
                 <input type="email" v-model="patient.correo" placeholder="ejemplo@email.com" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
+                <span class="text-[10px] text-slate-400 mt-1 block">Opcional para comprobante y orden médica</span>
               </div>
             </div>
 
@@ -452,7 +545,9 @@ const downloadCalendar = () => {
 
             <!-- Aviso Formal de Confirmación Posterior -->
             <div class="bg-sky-50 border border-sky-200 p-3 rounded-xl text-xs text-slate-700 flex items-start gap-2.5">
-              <span class="text-sky-600 font-bold text-sm mt-0.5">ℹ️</span>
+              <svg class="w-4 h-4 text-sky-600 shrink-0 mt-0.5 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
               <div class="leading-relaxed">
                 <strong class="text-sky-950 block font-bold mb-0.5">Protocolo de Atención Médica:</strong>
                 Al presionar confirmar, su solicitud quedará registrada. En breve, nuestro personal de secretaría médica se comunicará con usted vía WhatsApp o llamada para validar formalmente su turno y brindarle las indicaciones previas para su consulta.
@@ -463,8 +558,11 @@ const downloadCalendar = () => {
               <button type="button" @click="prevStep" class="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">
                 ← Volver
               </button>
-              <button type="button" @click="submitBooking" :disabled="loading" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50 cursor-pointer">
-                {{ loading ? 'Registrando en PostgreSQL...' : '✅ Confirmar Cita Médica' }}
+              <button type="button" @click="submitBooking" :disabled="loading" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5">
+                <svg v-if="!loading" class="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>{{ loading ? 'Registrando en PostgreSQL...' : 'Confirmar Cita Médica' }}</span>
               </button>
             </div>
           </div>
