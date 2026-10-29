@@ -220,21 +220,6 @@ const isActive = (path) => {
         <span v-if="!isCollapsed" class="truncate font-semibold">{{ doctorData.telefono_display }}</span>
       </a>
 
-      <!-- Botón Portal Doctor -->
-      <button
-        type="button"
-        @click="$emit('openPortal')"
-        class="w-full flex items-center justify-center rounded-xl font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer"
-        :class="isCollapsed ? 'p-3' : 'py-2 px-3 text-[11px] gap-1.5'"
-        :title="isCollapsed ? 'Portal Doctor' : ''"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
-          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-        <span v-if="!isCollapsed" class="truncate">{{ isDoctorLogged ? 'Panel Activo' : 'Portal Doctor' }}</span>
-      </button>
-
     </div>
   </aside>
 </template>
