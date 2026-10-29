@@ -18,6 +18,10 @@ const password = ref('');
 const loading = ref(false);
 
 const citas = ref([]);
+const pacientes = ref([]);
+const loadingPacientes = ref(false);
+const activeTab = ref('citas'); // 'citas' | 'pacientes'
+
 const stats = ref({
   total_citas: 0,
   citas_pendientes: 0,
@@ -98,8 +102,24 @@ const loadDashboardData = async () => {
     });
     if (resCitas.ok) {
       citas.value = await resCitas.json();
-      return;
     }
+
+    // 3. Cargar directorio de pacientes
+    try {
+      loadingPacientes.value = true;
+      const resPacientes = await fetch(`${API_BASE_URL}/api/pacientes`, {
+        headers: { 'Authorization': `Bearer ${token.value}` }
+      });
+      if (resPacientes.ok) {
+        pacientes.value = await resPacientes.json();
+      }
+    } catch (e) {
+      console.warn('Error al consultar pacientes:', e);
+    } finally {
+      loadingPacientes.value = false;
+    }
+
+    return;
   } catch (e) {
     console.warn('Backend no responde a portal, cargando datos locales.');
   }
@@ -139,6 +159,26 @@ const filteredCitas = computed(() => {
   }
   return list;
 });
+
+const filteredPacientes = computed(() => {
+  let list = pacientes.value;
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(p =>
+      (p.nombre && p.nombre.toLowerCase().includes(q)) ||
+      (p.telefono && p.telefono.toLowerCase().includes(q)) ||
+      (p.correo && p.correo.toLowerCase().includes(q))
+    );
+  }
+  return list;
+});
+
+const getWhatsAppPatientDirectLink = (paciente) => {
+  const cleanPhone = (paciente.telefono || '').replace(/[^0-9]/g, '');
+  const phone = cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone.startsWith('0') ? '58' + cleanPhone.substring(1) : cleanPhone);
+  const msg = `Hola ${paciente.nombre || 'estimado paciente'}, le escribimos desde el consultorio del Dr. Lisandro Márquez (Urólogo). Nos comunicamos para verificar su estado y recordarle que estamos a su disposición para agendar o revisar su consulta médica.`;
+  return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+};
 
 const changeStatus = async (citaId, newStatus) => {
   try {
@@ -181,6 +221,23 @@ const getWhatsAppPatientLink = (cita) => {
 };
 
 const exportCSV = () => {
+  if (activeTab.value === 'pacientes') {
+    if (!pacientes.value.length) return;
+    let csv = 'ID,Nombre,Telefono,Correo,Total Citas,Ultima Cita,Estado\n';
+    pacientes.value.forEach(p => {
+      csv += `"${p.id}","${p.nombre || ''}","${p.telefono || ''}","${p.correo || ''}","${p.total_citas || 0}","${p.ultima_cita || 'N/A'}","${p.estado_ultima_cita || 'Sin cita'}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `Directorio_Pacientes_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    emit('toast', { msg: 'Directorio de pacientes exportado en CSV', type: 'success' });
+    return;
+  }
+
   if (!citas.value.length) return;
   let csv = 'ID,Fecha y Hora,Paciente,Telefono,Correo,Servicio,Estado\n';
   citas.value.forEach(c => {
@@ -425,43 +482,99 @@ const downloadAssistantPDF = () => {
           </div>
         </div>
 
-        <!-- KPI Grid -->
+        <!-- KPI Grid Interactivo -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-          <div class="bg-sky-50 border border-sky-100 p-4 rounded-xl">
+          <div 
+            @click="activeTab = 'citas'; activeFilter = 'todos'"
+            class="bg-sky-50 border p-4 rounded-xl cursor-pointer hover:shadow-xs transition"
+            :class="activeTab === 'citas' && activeFilter === 'todos' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-sky-100'"
+          >
             <span class="text-2xl font-extrabold text-sky-900 block">{{ stats.total_citas }}</span>
             <span class="text-[11px] font-bold text-sky-600 uppercase">Citas Totales</span>
           </div>
-          <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
+
+          <div 
+            @click="activeTab = 'citas'; activeFilter = 'Pendiente'"
+            class="bg-amber-50 border p-4 rounded-xl cursor-pointer hover:shadow-xs transition"
+            :class="activeTab === 'citas' && activeFilter === 'Pendiente' ? 'border-amber-500 ring-2 ring-amber-300' : 'border-amber-100'"
+          >
             <span class="text-2xl font-extrabold text-amber-900 block">{{ stats.citas_pendientes }}</span>
             <span class="text-[11px] font-bold text-amber-600 uppercase">Por Confirmar</span>
           </div>
-          <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
+
+          <div 
+            @click="activeTab = 'citas'; activeFilter = 'Confirmada'"
+            class="bg-emerald-50 border p-4 rounded-xl cursor-pointer hover:shadow-xs transition"
+            :class="activeTab === 'citas' && activeFilter === 'Confirmada' ? 'border-emerald-500 ring-2 ring-emerald-300' : 'border-emerald-100'"
+          >
             <span class="text-2xl font-extrabold text-emerald-900 block">{{ stats.citas_confirmadas }}</span>
             <span class="text-[11px] font-bold text-emerald-600 uppercase">Confirmadas</span>
           </div>
-          <div class="bg-purple-50 border border-purple-100 p-4 rounded-xl">
-            <span class="text-2xl font-extrabold text-purple-900 block">{{ stats.total_pacientes }}</span>
-            <span class="text-[11px] font-bold text-purple-600 uppercase">Pacientes Únicos</span>
+
+          <div 
+            @click="activeTab = 'pacientes'"
+            class="bg-purple-50 border p-4 rounded-xl cursor-pointer hover:shadow-xs transition"
+            :class="activeTab === 'pacientes' ? 'border-purple-500 ring-2 ring-purple-300' : 'border-purple-200'"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-2xl font-extrabold text-purple-900 block">{{ stats.total_pacientes }}</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-200/70 text-purple-900">Ver Lista</span>
+            </div>
+            <span class="text-[11px] font-bold text-purple-600 uppercase">Pacientes Registrados</span>
           </div>
+        </div>
+
+        <!-- Selector de Pestañas: Agenda vs Directorio -->
+        <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <button
+            type="button"
+            @click="activeTab = 'citas'"
+            class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer"
+            :class="activeTab === 'citas' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+          >
+            <span>📅</span>
+            <span>Agenda de Citas</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="activeTab === 'citas' ? 'bg-sky-500 text-white' : 'bg-slate-200 text-slate-700'">
+              {{ citas.length }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            @click="activeTab = 'pacientes'"
+            class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer"
+            :class="activeTab === 'pacientes' ? 'bg-purple-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+          >
+            <span>👥</span>
+            <span>Directorio de Pacientes</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="activeTab === 'pacientes' ? 'bg-purple-400 text-white' : 'bg-purple-100 text-purple-800'">
+              {{ stats.total_pacientes || pacientes.length }}
+            </span>
+          </button>
         </div>
 
         <!-- Filter & Search Controls -->
         <div class="flex flex-wrap justify-between items-center gap-3">
-          <input type="text" v-model="searchQuery" placeholder="🔍 Buscar por paciente, teléfono o servicio..." 
-                 class="p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm flex-1 min-w-[260px] focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            :placeholder="activeTab === 'citas' ? '🔍 Buscar cita por paciente, teléfono o servicio...' : '🔍 Buscar paciente por nombre, teléfono o correo...'" 
+            class="p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm flex-1 min-w-[260px] focus:ring-2 focus:ring-sky-500 focus:outline-hidden" 
+          />
 
-          <div class="flex gap-1.5">
+          <!-- Filtros de estado (solo visibles en pestaña de citas) -->
+          <div v-if="activeTab === 'citas'" class="flex gap-1.5">
             <button v-for="st in ['todos', 'Pendiente', 'Confirmada', 'Realizada']" :key="st" type="button"
                     @click="activeFilter = st"
-                    class="px-3 py-1.5 rounded-full text-xs font-bold transition border"
+                    class="px-3 py-1.5 rounded-full text-xs font-bold transition border cursor-pointer"
                     :class="activeFilter === st ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'">
               {{ st === 'todos' ? 'Todas' : st }}
             </button>
           </div>
         </div>
 
-        <!-- Table -->
-        <div class="border border-slate-200 rounded-xl overflow-x-auto">
+        <!-- 1. Tabla de Citas (Pestaña 'citas') -->
+        <div v-if="activeTab === 'citas'" class="border border-slate-200 rounded-xl overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse">
             <thead>
               <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
@@ -499,7 +612,7 @@ const downloadAssistantPDF = () => {
                     <a :href="getWhatsAppPatientLink(c)" target="_blank" class="px-2.5 py-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-600 hover:text-white rounded font-bold text-[11px] transition flex items-center gap-1" title="Chatear por WhatsApp">
                       <span>💬</span> WhatsApp
                     </a>
-                    <button type="button" @click="deleteCita(c.id)" class="p-1 bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white rounded font-bold text-xs transition" title="Eliminar Cita">
+                    <button type="button" @click="deleteCita(c.id)" class="p-1 bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white rounded font-bold text-xs transition cursor-pointer" title="Eliminar Cita">
                       🗑️
                     </button>
                   </div>
@@ -508,6 +621,64 @@ const downloadAssistantPDF = () => {
               <tr v-if="!filteredCitas.length">
                 <td colspan="7" class="p-8 text-center text-slate-400 text-xs">
                   No se encontraron citas con los filtros seleccionados.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 2. Tabla del Directorio de Pacientes (Pestaña 'pacientes') -->
+        <div v-else class="border border-slate-200 rounded-xl overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-purple-50/70 border-b border-purple-200 text-purple-950 font-bold">
+                <th class="p-3"># ID</th>
+                <th class="p-3">Paciente Registrado</th>
+                <th class="p-3">Teléfono / Contacto</th>
+                <th class="p-3 text-center">Citas Agendadas</th>
+                <th class="p-3">Última Cita en Sistema</th>
+                <th class="p-3 text-right">Contacto Directo</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-for="p in filteredPacientes" :key="p.id" class="hover:bg-slate-50/70 transition">
+                <td class="p-3 font-bold text-purple-900">#{{ p.id }}</td>
+                <td class="p-3">
+                  <strong class="text-slate-900 block text-xs">{{ p.nombre }}</strong>
+                  <span class="text-[10px] text-slate-400">{{ p.correo || 'Sin correo' }}</span>
+                </td>
+                <td class="p-3 text-slate-700 font-mono text-[11px] font-semibold">{{ p.telefono || 'Sin teléfono' }}</td>
+                <td class="p-3 text-center">
+                  <span 
+                    class="px-2 py-0.5 rounded-full text-[10px] font-black border"
+                    :class="(p.total_citas > 0) ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'"
+                  >
+                    {{ p.total_citas }} {{ (p.total_citas === 1) ? 'cita' : 'citas' }}
+                  </span>
+                </td>
+                <td class="p-3 text-slate-600">
+                  <span v-if="p.ultima_cita" class="block font-semibold text-slate-800">{{ p.ultima_cita }}</span>
+                  <span 
+                    class="text-[10px] font-bold"
+                    :class="p.estado_ultima_cita === 'Confirmada' ? 'text-emerald-600' : (p.estado_ultima_cita === 'Pendiente' ? 'text-amber-600' : 'text-slate-400')"
+                  >
+                    {{ p.estado_ultima_cita || 'Sin cita activa' }}
+                  </span>
+                </td>
+                <td class="p-3 text-right whitespace-nowrap">
+                  <a 
+                    :href="getWhatsAppPatientDirectLink(p)" 
+                    target="_blank" 
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-600 text-emerald-800 hover:text-white rounded-lg font-bold text-[11px] transition" 
+                    title="Enviar mensaje por WhatsApp al paciente"
+                  >
+                    <span>💬</span> WhatsApp
+                  </a>
+                </td>
+              </tr>
+              <tr v-if="!filteredPacientes.length">
+                <td colspan="6" class="p-8 text-center text-slate-400 text-xs">
+                  No se encontraron pacientes que coincidan con la búsqueda.
                 </td>
               </tr>
             </tbody>
