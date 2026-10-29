@@ -8,7 +8,7 @@ const activeTab = ref('renal');
 const echoes = {
   renal: {
     id: 'renal',
-    name: '1. Ecografía Renal',
+    name: 'Ecografía Renal',
     organ: 'Riñones (Bilateral)',
     color: 'sky',
     badgeText: 'Filtro Renal & Cálculos',
@@ -41,7 +41,7 @@ const echoes = {
   },
   vesical: {
     id: 'vesical',
-    name: '2. Ecografía Vesical',
+    name: 'Ecografía Vesical',
     organ: 'Vejiga Urinaria (Pre y Post-Miccional)',
     color: 'cyan',
     badgeText: 'Capacidad & Residuo Oculto',
@@ -74,7 +74,7 @@ const echoes = {
   },
   prostatica: {
     id: 'prostatica',
-    name: '3. Ecografía Prostática',
+    name: 'Ecografía Prostática',
     organ: 'Glándula Prostática & Vesículas Seminales',
     color: 'indigo',
     badgeText: 'Volumen & Lóbulo Medio',
@@ -125,7 +125,7 @@ const echoes = {
         </p>
       </div>
 
-      <!-- Pestañas Interactivas de los 3 Ecos -->
+      <!-- Pestañas Interactivas de los 3 Ecos (Sin números) -->
       <div class="flex flex-col sm:flex-row justify-center gap-3 mb-8">
         <button
           v-for="eco in echoes"
@@ -147,18 +147,17 @@ const echoes = {
         </button>
       </div>
 
-      <!-- Tarjeta Interactiva del Eco Activo -->
-      <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 rounded-3xl text-white shadow-2xl p-6 sm:p-10 border border-slate-800 relative overflow-hidden">
-        
-        <!-- Fondo decorativo abstracto -->
-        <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
+      <!-- Tarjeta Interactiva con Fondo Sólido Oscuro Determinista (Máximo Contraste de Letras Blancas) -->
+      <div 
+        class="bg-medical-banner rounded-3xl text-white shadow-2xl p-6 sm:p-10 border border-slate-700/80 relative overflow-hidden"
+        style="background-color: #0b1329 !important; background: linear-gradient(135deg, #0b1329 0%, #0f172a 40%, #1e293b 75%, #082f49 100%) !important;"
+      >
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative z-10">
           
           <!-- Columna Izquierda: Información Principal y Parámetros (5 cols) -->
           <div class="lg:col-span-5 space-y-6">
             <div>
-              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-400/30 mb-3">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-900/60 text-sky-300 border border-sky-400/30 mb-3">
                 <span>{{ echoes[activeTab].icon }}</span>
                 <span>{{ echoes[activeTab].badgeText }}</span>
               </div>
@@ -166,34 +165,34 @@ const echoes = {
                 {{ echoes[activeTab].name }}
               </h3>
               <p class="text-xs sm:text-sm text-sky-200 font-semibold mt-1">
-                Órgano: {{ echoes[activeTab].organ }}
+                Órgano: <span class="text-white font-bold">{{ echoes[activeTab].organ }}</span>
               </p>
             </div>
 
             <!-- Fila de Parámetros Médicos Clave -->
-            <div class="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-              <span class="text-[11px] font-extrabold uppercase tracking-wider text-sky-400 block">
+            <div class="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3">
+              <span class="text-[11px] font-extrabold uppercase tracking-wider text-sky-300 block">
                 Valores de Referencia Ecográfica:
               </span>
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div 
                   v-for="(p, i) in echoes[activeTab].parametros" 
                   :key="i"
-                  class="bg-black/20 p-2.5 rounded-xl border border-white/5"
+                  class="bg-black/30 p-2.5 rounded-xl border border-white/10"
                 >
-                  <p class="text-[10px] text-slate-400 font-medium">{{ p.label }}</p>
+                  <p class="text-[10px] text-slate-300 font-medium">{{ p.label }}</p>
                   <p class="text-xs font-black text-white mt-0.5">{{ p.val }}</p>
                 </div>
               </div>
             </div>
 
             <!-- Testimonio Clínico del Dr. Márquez -->
-            <div class="p-4.5 rounded-2xl bg-sky-900/30 border border-sky-500/20 relative">
+            <div class="p-4.5 rounded-2xl bg-sky-950/80 border border-sky-500/30 relative">
               <div class="flex items-center gap-2 text-sky-300 font-bold text-xs mb-1.5">
                 <span>👨‍⚕️</span>
                 <span>Criterio del Dr. Lisandro Márquez:</span>
               </div>
-              <p class="text-xs sm:text-sm text-slate-200 italic leading-relaxed">
+              <p class="text-xs sm:text-sm text-slate-100 italic leading-relaxed">
                 "{{ echoes[activeTab].fraseEspecialista }}"
               </p>
             </div>
@@ -210,13 +209,13 @@ const echoes = {
           </div>
 
           <!-- Columna Derecha: ¿Qué Detecta Esta Ecografía? (7 cols) -->
-          <div class="lg:col-span-7 bg-white/5 p-6 rounded-2xl border border-white/10 space-y-4">
+          <div class="lg:col-span-7 bg-black/30 p-6 rounded-2xl border border-white/10 space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-white/10">
               <h4 class="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
                 <span>🔍</span>
                 <span>Hallazgos Clínicos que Permite Detectar</span>
               </h4>
-              <span class="text-xs font-bold text-sky-300 bg-sky-900/50 px-2.5 py-0.5 rounded-full border border-sky-500/30">
+              <span class="text-xs font-bold text-sky-300 bg-sky-900/60 px-2.5 py-0.5 rounded-full border border-sky-400/40">
                 Alta Precisión
               </span>
             </div>
@@ -225,20 +224,20 @@ const echoes = {
               <div
                 v-for="(item, idx) in echoes[activeTab].queDetecta"
                 :key="idx"
-                class="p-4 rounded-xl bg-slate-900/80 border border-white/10 hover:border-sky-500/40 transition-all space-y-1.5"
+                class="p-4 rounded-xl bg-slate-900/90 border border-white/10 hover:border-sky-500/50 transition-all space-y-1.5"
               >
                 <div class="flex items-center gap-2 text-sky-400 font-extrabold text-xs sm:text-sm">
                   <span>✓</span>
                   <span>{{ item.titulo }}</span>
                 </div>
-                <p class="text-xs text-slate-300 leading-relaxed">
+                <p class="text-xs text-slate-200 leading-relaxed">
                   {{ item.desc }}
                 </p>
               </div>
             </div>
 
             <!-- Por qué los 3 Ecos en Conjunto -->
-            <div class="mt-4 p-4 rounded-xl bg-gradient-to-r from-sky-950/80 to-slate-900/80 border border-sky-500/30 flex items-start gap-3">
+            <div class="mt-4 p-4 rounded-xl bg-sky-950/80 border border-sky-500/30 flex items-start gap-3">
               <span class="text-xl">💡</span>
               <div class="text-xs text-sky-100 leading-relaxed">
                 <strong class="text-sky-300">¿Por qué nunca deben hacerse por separado?</strong> 
