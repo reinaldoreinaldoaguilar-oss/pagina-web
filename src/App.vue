@@ -8,6 +8,7 @@ import FooterSection from './components/FooterSection.vue';
 import BookingModal from './components/BookingModal.vue';
 import DoctorPortal from './components/DoctorPortal.vue';
 import WhatsAppButton from './components/WhatsAppButton.vue';
+import { API_BASE_URL } from './config/api';
 
 // Estado de Colapso de la Barra Lateral Izquierda (con persistencia)
 const isSidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === 'true');
@@ -40,12 +41,12 @@ const openBookingWithService = (serviceId = null) => {
   isBookingOpen.value = true;
 };
 
-// Verificar conexión con el backend Flask / PostgreSQL
+// Verificar conexión con el backend Flask / PostgreSQL en Render
 onMounted(async () => {
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch('http://127.0.0.1:5000/', { signal: controller.signal });
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(`${API_BASE_URL}/`, { signal: controller.signal });
     clearTimeout(timer);
     backendOnline.value = res.ok;
   } catch (e) {

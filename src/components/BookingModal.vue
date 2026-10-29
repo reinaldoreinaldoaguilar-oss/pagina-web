@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import doctorData from '../data/doctor.json';
 import fallbackServices from '../data/servicios.json';
+import { API_BASE_URL } from '../config/api';
 
 const props = defineProps({
   isOpen: {
@@ -114,7 +115,7 @@ const submitBooking = async () => {
 
     // 1. Guardar paciente
     try {
-      const resP = await fetch('http://127.0.0.1:5000/api/pacientes', {
+      const resP = await fetch(`${API_BASE_URL}/api/pacientes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -135,7 +136,7 @@ const submitBooking = async () => {
     let citaId = null;
     const fechaHora = `${selectedDate.value} ${selectedTime.value}`;
     try {
-      const resC = await fetch('http://127.0.0.1:5000/api/citas', {
+      const resC = await fetch(`${API_BASE_URL}/api/citas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

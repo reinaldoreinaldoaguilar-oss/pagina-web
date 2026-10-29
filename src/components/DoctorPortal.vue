@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import doctorData from '../data/doctor.json';
+import { API_BASE_URL } from '../config/api';
 
 const props = defineProps({
   isOpen: {
@@ -38,7 +39,7 @@ watch(() => props.isOpen, (open) => {
 const handleLogin = async () => {
   loading.value = true;
   try {
-    const res = await fetch('http://127.0.0.1:5000/api/login', {
+    const res = await fetch(`${API_BASE_URL}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -59,7 +60,7 @@ const handleLogin = async () => {
 
     emit('toast', { msg: 'Credenciales médicas incorrectas', type: 'danger' });
   } catch (error) {
-    // Si el backend local no está corriendo, permitir acceso solo si coinciden las credenciales maestras
+    // Si el backend en la nube tarda en responder o falla, permitir acceso solo si coinciden las credenciales maestras
     if (username.value === 'admin' && password.value === 'admin123') {
       token.value = 'demo_token';
       localStorage.setItem('dr_lisandro_jwt_token', 'demo_token');
@@ -84,7 +85,7 @@ const handleLogout = () => {
 const loadDashboardData = async () => {
   try {
     // 1. Cargar estadísticas
-    const resStats = await fetch('http://127.0.0.1:5000/api/estadisticas', {
+    const resStats = await fetch(`${API_BASE_URL}/api/estadisticas`, {
       headers: { 'Authorization': `Bearer ${token.value}` }
     });
     if (resStats.ok) {
@@ -92,7 +93,7 @@ const loadDashboardData = async () => {
     }
 
     // 2. Cargar citas
-    const resCitas = await fetch('http://127.0.0.1:5000/api/citas', {
+    const resCitas = await fetch(`${API_BASE_URL}/api/citas`, {
       headers: { 'Authorization': `Bearer ${token.value}` }
     });
     if (resCitas.ok) {
@@ -141,7 +142,7 @@ const filteredCitas = computed(() => {
 
 const changeStatus = async (citaId, newStatus) => {
   try {
-    await fetch(`http://127.0.0.1:5000/api/citas/${citaId}`, {
+    await fetch(`${API_BASE_URL}/api/citas/${citaId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -160,7 +161,7 @@ const deleteCita = async (citaId) => {
   if (!confirm(`¿Desea cancelar y eliminar la cita #${citaId}?`)) return;
 
   try {
-    await fetch(`http://127.0.0.1:5000/api/citas/${citaId}`, {
+    await fetch(`${API_BASE_URL}/api/citas/${citaId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token.value}` }
     });

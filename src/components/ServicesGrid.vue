@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import fallbackServices from '../data/servicios.json';
+import { API_BASE_URL } from '../config/api';
 
 defineEmits(['selectServiceToBook']);
 
@@ -9,7 +10,7 @@ const loading = ref(true);
 
 onMounted(async () => {
   try {
-    const res = await fetch('http://127.0.0.1:5000/api/servicios');
+    const res = await fetch(`${API_BASE_URL}/api/servicios`);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
