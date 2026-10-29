@@ -24,11 +24,32 @@ const selectedDate = ref('');
 const selectedTime = ref('');
 const selectedCountry = ref(countriesList[0]); // Por defecto: Venezuela (+58)
 const rawPhoneNumber = ref('');
+
+const sedesList = [
+  {
+    id: 'caracas',
+    nombre: 'Caracas — Clínica VidaMed',
+    detalle: 'Sede Quirúrgica & Consultorios'
+  },
+  {
+    id: 'guatire',
+    nombre: 'Guatire — Clínica San Martín de Porres',
+    detalle: 'Unidad Urológica Dr. Gregorio Hernández'
+  },
+  {
+    id: 'barlovento',
+    nombre: 'Barlovento — Clínica Caucagua',
+    detalle: 'Jornadas Especiales Urológicas'
+  }
+];
+
+const selectedSede = ref(sedesList[0].nombre);
+
 const patient = ref({
   nombre: '',
   telefono: '',
   correo: '',
-  notas: ''
+  sintomas: ''
 });
 
 // Calcula el formato internacional final (ej: +58 4141234567)
@@ -77,11 +98,12 @@ watch(() => props.isOpen, (open) => {
     confirmedData.value = null;
     rawPhoneNumber.value = '';
     selectedCountry.value = countriesList[0];
+    selectedSede.value = sedesList[0].nombre;
     patient.value = {
       nombre: '',
       telefono: '',
       correo: '',
-      notas: ''
+      sintomas: ''
     };
     if (props.preselectedServiceId) {
       selectedServiceId.value = props.preselectedServiceId;
@@ -215,6 +237,8 @@ const submitBooking = async () => {
       nombre: patient.value.nombre,
       telefono: fullPhone,
       servicio: selectedServiceName.value,
+      sede: selectedSede.value,
+      sintomas: patient.value.sintomas,
       fecha: selectedDate.value,
       hora: selectedTime.value
     };
@@ -231,17 +255,22 @@ const submitBooking = async () => {
 const whatsappConfirmationLink = computed(() => {
   if (!confirmedData.value) return '#';
   const c = confirmedData.value;
-  const msg = encodeURIComponent(
+  let msg = 
     `¡Hola Dr. Lisandro Márquez! Acabo de registrar una cita médica en su página web:\n\n` +
     `👤 Paciente: ${c.nombre}\n` +
     `📞 Teléfono / WhatsApp: ${c.telefono}\n` +
     `🩺 Servicio: ${c.servicio}\n` +
+    `🏥 Sede Elegida: ${c.sede}\n` +
     `📅 Fecha: ${c.fecha}\n` +
     `⏰ Hora: ${c.hora}\n` +
-    `🔖 Código: #CITA-${c.citaId}\n\n` +
-    `¿Podría por favor confirmarme los detalles para la consulta? Muchas gracias.`
-  );
-  return `https://wa.me/${doctorData.whatsapp}?text=${msg}`;
+    `🔖 Código: #CITA-${c.citaId}\n`;
+
+  if (c.sintomas && c.sintomas.trim()) {
+    msg += `📝 Motivo / Síntomas: ${c.sintomas.trim()}\n`;
+  }
+
+  msg += `\n¿Podría por favor confirmarme los detalles para la consulta? Muchas gracias.`;
+  return `https://wa.me/${doctorData.whatsapp}?text=${encodeURIComponent(msg)}`;
 });
 
 const downloadCalendar = () => {
@@ -262,8 +291,8 @@ const downloadCalendar = () => {
     `DTSTART:${fmt(start)}`,
     `DTEND:${fmt(end)}`,
     `SUMMARY:Cita Urológica: ${c.servicio} - ${doctorData.nombre}`,
-    `DESCRIPTION:Consulta con el ${doctorData.nombre}. WhatsApp: ${doctorData.telefono_display}`,
-    `LOCATION:Caracas VidaMed / Guatire`,
+    `DESCRIPTION:Consulta con el ${doctorData.nombre}. Sede: ${c.sede}. WhatsApp: ${doctorData.telefono_display}`,
+    `LOCATION:${c.sede}`,
     'STATUS:CONFIRMED',
     'END:VEVENT',
     'END:VCALENDAR'
@@ -347,8 +376,12 @@ const downloadCalendar = () => {
               <strong class="text-slate-800">{{ confirmedData.fecha }} a las {{ confirmedData.hora }}</strong>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-500">Sede de Consulta:</span>
-              <strong class="text-slate-800">Caracas (VidaMed) / Guatire</strong>
+              <span class="text-slate-500">Sede Elegida:</span>
+              <strong class="text-slate-800">{{ confirmedData.sede }}</strong>
+            </div>
+            <div v-if="confirmedData.sintomas" class="flex justify-between border-t border-slate-200/80 pt-2 text-[11px]">
+              <span class="text-slate-500">Motivo / Síntomas:</span>
+              <span class="text-slate-700 italic max-w-[220px] truncate" :title="confirmedData.sintomas">{{ confirmedData.sintomas }}</span>
             </div>
             <div class="flex justify-between border-t border-slate-200/80 pt-2">
               <span class="text-slate-500">Teléfono Registrado:</span>
@@ -538,9 +571,36 @@ const downloadCalendar = () => {
               </div>
             </div>
 
+            <!-- Selector Desplegable de Sedes Clínicas -->
             <div>
-              <label class="block text-xs font-bold text-slate-800 mb-1">Sede de Preferencia / Síntomas:</label>
-              <textarea v-model="patient.notas" rows="2" placeholder="Indica si prefieres ser atendido en Caracas o Guatire, o describe tus síntomas..." class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"></textarea>
+              <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                <span>Sede a donde desea acudir: *</span>
+                <span class="text-[10px] text-sky-600 font-semibold">Presencial</span>
+              </label>
+              <div class="relative">
+                <select
+                  v-model="selectedSede"
+                  class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden cursor-pointer shadow-2xs"
+                >
+                  <option v-for="s in sedesList" :key="s.id" :value="s.nombre">
+                    {{ s.nombre }} — ({{ s.detalle }})
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Descripción del Caso / Síntomas -->
+            <div>
+              <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                <span>Descripción del Caso / Síntomas:</span>
+                <span class="text-[10px] text-slate-400 font-normal">Opcional</span>
+              </label>
+              <textarea
+                v-model="patient.sintomas"
+                rows="2"
+                placeholder="Describe brevemente tus síntomas, motivo de consulta o si traes algún examen previo..."
+                class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+              ></textarea>
             </div>
 
             <!-- Aviso Formal de Confirmación Posterior -->
@@ -558,11 +618,22 @@ const downloadCalendar = () => {
               <button type="button" @click="prevStep" class="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">
                 ← Volver
               </button>
-              <button type="button" @click="submitBooking" :disabled="loading" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5">
-                <svg v-if="!loading" class="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2.5">
+              <button 
+                type="button" 
+                @click="submitBooking" 
+                :disabled="loading" 
+                class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-75 cursor-pointer flex items-center gap-2"
+              >
+                <!-- Spinner SVG cuando está cargando -->
+                <svg v-if="loading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <!-- Checkmark cuando está listo -->
+                <svg v-else class="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                <span>{{ loading ? 'Registrando en PostgreSQL...' : 'Confirmar Cita Médica' }}</span>
+                <span>{{ loading ? 'Agendando cita...' : 'Confirmar Cita Médica' }}</span>
               </button>
             </div>
           </div>
