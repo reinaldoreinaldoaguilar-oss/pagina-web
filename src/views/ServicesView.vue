@@ -1,4 +1,5 @@
 <script setup>
+import ThreeEchoesInteractive from '../components/ThreeEchoesInteractive.vue';
 import ServicesGrid from '../components/ServicesGrid.vue';
 import FaqAccordion from '../components/FaqAccordion.vue';
 
@@ -23,6 +24,9 @@ defineEmits(['openBooking', 'selectServiceToBook']);
         </p>
       </div>
     </div>
+
+    <!-- Infografía Interactiva de los 3 Ecos (Propuesta 6) -->
+    <ThreeEchoesInteractive @openBooking="$emit('openBooking')" />
 
     <!-- Catálogo de Servicios Clínicos -->
     <ServicesGrid @selectServiceToBook="$emit('selectServiceToBook', $event)" />

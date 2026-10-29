@@ -1,5 +1,6 @@
 <script setup>
 import PatientEducation from '../components/PatientEducation.vue';
+import StudyPrepChecklist from '../components/StudyPrepChecklist.vue';
 import FaqAccordion from '../components/FaqAccordion.vue';
 
 defineEmits(['openBooking', 'selectServiceToBook']);
@@ -23,6 +24,12 @@ defineEmits(['openBooking', 'selectServiceToBook']);
         </p>
       </div>
     </div>
+
+    <!-- Guía Interactiva de Preparación Pre-Consulta (Propuesta 1) -->
+    <StudyPrepChecklist 
+      @openBooking="$emit('openBooking')" 
+      @selectServiceToBook="$emit('selectServiceToBook', $event)" 
+    />
 
     <!-- Artículos y Bloques de Educación -->
     <PatientEducation @selectServiceToBook="$emit('selectServiceToBook', $event)" />

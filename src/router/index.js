@@ -11,7 +11,7 @@ const routes = [
   { path: '/especialista', name: 'especialista', component: DoctorView, meta: { title: 'El Especialista' } },
   { path: '/guia-medica', name: 'guia-medica', component: EducationView, meta: { title: 'Guía Médica' } },
   { path: '/servicios', name: 'servicios', component: ServicesView, meta: { title: 'Servicios & 3 Ecos' } },
-  { path: '/test-prostata', name: 'test-prostata', component: QuizView, meta: { title: 'Test de Próstata' } },
+  { path: '/test-prostata', name: 'test-prostata', component: QuizView, meta: { title: 'Tests de Próstata & Salud Masculina' } },
   { path: '/citas', name: 'citas', component: SedesView, meta: { title: 'Sedes & Citas' } },
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ];

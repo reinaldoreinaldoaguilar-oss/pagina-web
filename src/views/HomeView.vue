@@ -39,6 +39,11 @@ defineEmits(['openBooking']);
             <span>🩺</span>
             <span>Evaluación con 3 Ecos</span>
           </router-link>
+          
+          <router-link to="/test-prostata" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-xs sm:text-sm text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 shadow-xs transition-all cursor-pointer">
+            <span>🛡️</span>
+            <span>Tests de Autoevaluación</span>
+          </router-link>
         </div>
       </div>
     </section>
