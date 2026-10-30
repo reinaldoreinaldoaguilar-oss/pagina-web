@@ -361,34 +361,64 @@ const changeStatus = async (citaId, newStatus) => {
   loadDashboardData();
 };
 
+const isSyncing = ref(false);
+
+const handleSync = async () => {
+  isSyncing.value = true;
+  try {
+    await loadDashboardData();
+    emit('toast', { msg: '✓ Datos del consultorio sincronizados con el servidor', type: 'info' });
+  } catch (e) {
+    emit('toast', { msg: 'Error al sincronizar datos', type: 'danger' });
+  } finally {
+    isSyncing.value = false;
+  }
+};
+
 const deleteCita = async (citaId) => {
-  if (!confirm(`¿Desea cancelar y eliminar la cita #${citaId}?`)) return;
+  if (!confirm(`¿Desea cancelar y eliminar definitivamente la cita #${citaId}?`)) return;
 
   try {
-    await fetch(`${API_BASE_URL}/api/citas/${citaId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/citas/${citaId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token.value}` }
     });
-  } catch (e) {}
-
-  citas.value = citas.value.filter(c => c.id !== citaId);
-  emit('toast', { msg: `Cita #${citaId} eliminada`, type: 'info' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      emit('toast', { msg: data.mensaje || `Error al eliminar cita #${citaId}`, type: 'danger' });
+      return;
+    }
+    citas.value = citas.value.filter(c => c.id !== citaId);
+    stats.value.total_citas = citas.value.length;
+    emit('toast', { msg: `Cita #${citaId} eliminada correctamente de la base de datos`, type: 'info' });
+  } catch (e) {
+    emit('toast', { msg: `Error de conexión al eliminar cita #${citaId}`, type: 'danger' });
+  }
 };
 
 const deletePaciente = async (pacienteId) => {
-  if (!confirm(`¿Desea eliminar definitivamente el registro del paciente #${pacienteId}? Esto también eliminará las citas vinculadas a este paciente.`)) return;
+  const displayId = String(pacienteId).replace('leg_', '');
+  if (!confirm(`¿Desea eliminar definitivamente al paciente #${displayId} de la base de datos?\n\nEsta acción borrará el registro de forma permanente junto con su historial de citas.`)) return;
 
   try {
-    await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token.value}` }
     });
-  } catch (e) {}
+    
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      emit('toast', { msg: data.mensaje || `Error al eliminar paciente #${displayId}`, type: 'danger' });
+      return;
+    }
 
-  pacientes.value = pacientes.value.filter(p => p.id !== pacienteId);
-  citas.value = citas.value.filter(c => c.paciente_id !== pacienteId);
-  stats.value.total_pacientes = pacientes.value.length;
-  emit('toast', { msg: `Paciente #${pacienteId} y su registro fueron eliminados`, type: 'info' });
+    pacientes.value = pacientes.value.filter(p => p.id !== pacienteId);
+    citas.value = citas.value.filter(c => c.paciente_id !== pacienteId);
+    stats.value.total_pacientes = pacientes.value.length;
+    emit('toast', { msg: `✓ Paciente #${displayId} eliminado definitivamente de la base de datos`, type: 'success' });
+  } catch (e) {
+    emit('toast', { msg: `Error de conexión al eliminar paciente #${displayId}`, type: 'danger' });
+  }
 };
 
 const getWhatsAppPatientLink = (cita) => {
@@ -637,11 +667,22 @@ const downloadAssistantPDF = () => {
               </svg>
               Reporte Asistente (PDF)
             </button>
-            <button type="button" @click="loadDashboardData" class="px-3 py-1.5 bg-sky-50 text-sky-700 font-bold rounded-xl text-xs hover:bg-sky-100 transition border border-sky-200 cursor-pointer flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
+            <button 
+              type="button" 
+              @click="handleSync" 
+              :disabled="isSyncing"
+              class="px-3 py-1.5 bg-sky-50 text-sky-700 font-bold rounded-xl text-xs hover:bg-sky-100 transition border border-sky-200 cursor-pointer flex items-center gap-1.5 disabled:opacity-60 shadow-2xs"
+              title="Actualiza citas, directorio de pacientes y bloqueos de agenda en tiempo real desde la base de datos"
+            >
+              <svg 
+                class="w-3.5 h-3.5 fill-none stroke-current" 
+                :class="{ 'animate-spin': isSyncing }"
+                viewBox="0 0 24 24" 
+                stroke-width="2"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Sincronizar
+              <span>{{ isSyncing ? 'Sincronizando...' : 'Sincronizar' }}</span>
             </button>
             <button type="button" @click="handleLogout" class="px-3 py-1.5 bg-rose-50 text-rose-700 font-bold rounded-xl text-xs hover:bg-rose-100 transition border border-rose-200 cursor-pointer">
               Cerrar Sesión
@@ -1119,22 +1160,38 @@ const downloadAssistantPDF = () => {
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="p in filteredPacientes" :key="p.id" class="hover:bg-slate-50/70 transition">
-                <td class="p-3 font-bold text-purple-900">#{{ p.id }}</td>
+                <td class="p-3 font-bold text-purple-900 font-mono text-xs whitespace-nowrap">
+                  #{{ String(p.id).replace('leg_', '') }}
+                  <span v-if="p.tipo === 'google'" class="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 font-sans font-bold">Google</span>
+                  <span v-else class="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-sans font-medium">Web</span>
+                </td>
                 <td class="p-3">
-                  <strong class="text-slate-900 block text-xs">{{ p.nombre }}</strong>
-                  <span class="text-[10px] text-slate-400 font-mono">{{ p.correo || 'Sin correo' }}</span>
+                  <div class="flex items-center gap-2">
+                    <img v-if="p.foto_url" :src="p.foto_url" alt="Avatar" class="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0" />
+                    <div v-else class="w-6 h-6 rounded-full bg-purple-100 text-purple-700 font-black text-[10px] flex items-center justify-center shrink-0">
+                      {{ (p.nombre || 'P')[0] }}
+                    </div>
+                    <div class="min-w-0">
+                      <strong class="text-slate-900 block text-xs truncate">{{ p.nombre }}</strong>
+                      <span class="text-[10px] text-slate-400 font-mono block truncate">{{ p.correo || 'Sin correo' }}</span>
+                    </div>
+                  </div>
                 </td>
-                <td class="p-3 text-slate-700 font-mono text-[11px] font-semibold">{{ p.telefono || 'Sin teléfono' }}</td>
+                <td class="p-3 text-slate-700 font-mono text-[11px] font-semibold whitespace-nowrap">{{ p.telefono || 'Sin teléfono' }}</td>
                 <td class="p-3 text-center">
-                  <span 
-                    class="px-2 py-0.5 rounded-full text-[10px] font-black border"
-                    :class="(p.total_citas > 0) ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'"
+                  <button 
+                    type="button"
+                    @click="activeTab = 'citas'; searchQuery = p.nombre || p.correo || ''"
+                    class="px-2.5 py-0.5 rounded-full text-[10px] font-black border transition hover:scale-105 cursor-pointer inline-flex items-center gap-1"
+                    :class="(p.total_citas > 0) ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200'"
+                    :title="p.total_citas > 0 ? 'Ver citas de este paciente en la agenda' : 'Sin citas agendadas'"
                   >
-                    {{ p.total_citas }} {{ (p.total_citas === 1) ? 'cita' : 'citas' }}
-                  </span>
+                    <span>{{ p.total_citas }}</span>
+                    <span>{{ (p.total_citas === 1) ? 'cita' : 'citas' }}</span>
+                  </button>
                 </td>
-                <td class="p-3 text-slate-600">
-                  <span v-if="p.ultima_cita" class="block font-semibold text-slate-800">{{ p.ultima_cita }}</span>
+                <td class="p-3 text-slate-600 whitespace-nowrap">
+                  <span v-if="p.ultima_cita" class="block font-semibold text-slate-800 font-mono text-[11px]">{{ p.ultima_cita }}</span>
                   <span class="text-[10px] font-bold text-sky-700">
                     {{ p.estado_ultima_cita || 'Sin cita activa' }}
                   </span>
@@ -1144,7 +1201,7 @@ const downloadAssistantPDF = () => {
                     <a 
                       :href="getWhatsAppPatientDirectLink(p)" 
                       target="_blank" 
-                      class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 hover:bg-emerald-600 text-emerald-800 hover:text-white rounded-lg font-bold text-[11px] transition" 
+                      class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 hover:bg-emerald-600 text-emerald-800 hover:text-white rounded-lg font-bold text-[11px] transition shadow-2xs" 
                       title="Enviar mensaje por WhatsApp al paciente"
                     >
                       <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
@@ -1155,12 +1212,13 @@ const downloadAssistantPDF = () => {
                     <button 
                       type="button" 
                       @click="deletePaciente(p.id)" 
-                      class="p-1 bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white rounded-lg font-bold text-xs transition cursor-pointer" 
-                      title="Eliminar Paciente y su historial"
+                      class="px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 rounded-lg font-bold text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs" 
+                      title="Eliminar este paciente y su historial de la base de datos"
                     >
                       <svg class="w-3.5 h-3.5 stroke-current fill-none" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
+                      <span class="text-[10px] font-semibold">Eliminar</span>
                     </button>
                   </div>
                 </td>
