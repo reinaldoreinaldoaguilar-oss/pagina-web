@@ -25,7 +25,17 @@ const loadingPacientes = ref(false);
 const loadingBloqueos = ref(false);
 const activeTab = ref('citas'); // 'citas' | 'pacientes' | 'bloqueos'
 
-// Formulario de nuevo bloqueo de agenda
+// Formulario de bloqueo de agenda y días que no atiende
+const blockMode = ref('dia'); // 'dia' | 'rango'
+const singleDayDate = ref('');
+const singleDayMotivoPreset = ref('No atiendo consultas en este día (Día No Laborable)');
+const singleDayCustomMotivo = ref('');
+const singleDaySedeId = ref(null);
+
+const minTodayDate = computed(() => {
+  return new Date().toISOString().split('T')[0];
+});
+
 const newBlock = ref({
   fecha_inicio: '',
   hora_inicio: '08:00',
@@ -168,6 +178,47 @@ const loadBloqueos = async () => {
     console.warn('Error al cargar bloqueos:', e);
   } finally {
     loadingBloqueos.value = false;
+  }
+};
+
+const handleCreateSingleDayBlock = async () => {
+  if (!singleDayDate.value) {
+    emit('toast', { msg: 'Por favor selecciona la fecha que deseas bloquear', type: 'warning' });
+    return;
+  }
+  
+  const motivoFinal = singleDayMotivoPreset.value === 'otro'
+    ? (singleDayCustomMotivo.value.trim() || 'No disponible para consultas')
+    : singleDayMotivoPreset.value;
+
+  savingBlock.value = true;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/doctor/bloqueos`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token.value}`
+      },
+      body: JSON.stringify({
+        fecha: singleDayDate.value,
+        motivo: motivoFinal,
+        sede_id: singleDaySedeId.value
+      })
+    });
+
+    if (res.ok) {
+      emit('toast', { msg: `¡Día ${singleDayDate.value} bloqueado! Los pacientes verán este día bloqueado para citas.`, type: 'success' });
+      singleDayDate.value = '';
+      singleDayCustomMotivo.value = '';
+      await loadBloqueos();
+    } else {
+      const data = await res.json();
+      emit('toast', { msg: data.mensaje || 'Error al guardar bloqueo', type: 'danger' });
+    }
+  } catch (e) {
+    emit('toast', { msg: 'Error de conexión al registrar bloqueo', type: 'danger' });
+  } finally {
+    savingBlock.value = false;
   }
 };
 
@@ -796,102 +847,259 @@ const downloadAssistantPDF = () => {
         <!-- 2. PESTAÑA: BLOQUEOS DE AGENDA Y DISPONIBILIDAD -->
         <div v-else-if="activeTab === 'bloqueos'" class="space-y-6">
           
-          <!-- Formulario para agregar nuevo bloqueo -->
-          <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 space-y-4">
-            <div>
-              <h5 class="text-sm font-extrabold text-amber-950 flex items-center gap-2">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-amber-700">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-                Registrar Bloqueo de Agenda Médica
-              </h5>
-              <p class="text-[11px] text-amber-800 mt-0.5">
-                Los horarios comprendidos en este intervalo no podrán ser reservados por los pacientes.
-              </p>
-            </div>
+          <!-- Encabezado de la Sección con selector de modo -->
+          <div class="bg-amber-50/80 border border-amber-200 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h5 class="text-base font-extrabold text-amber-950 flex items-center gap-2">
+                  <span class="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                    📅
+                  </span>
+                  <span>Gestión de Días que Atiende el Dr. Lisandro Márquez</span>
+                </h5>
+                <p class="text-xs text-amber-900/80 mt-1">
+                  Configure los días que atiende o marque días en los que <strong>NO podrá atender pacientes</strong>. Al bloquear una fecha, quedará bloqueada en el calendario de reserva.
+                </p>
+              </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-              <div>
-                <label class="block font-bold text-slate-700 mb-1">Fecha Inicio:</label>
-                <input type="date" v-model="newBlock.fecha_inicio" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
-              </div>
-              <div>
-                <label class="block font-bold text-slate-700 mb-1">Hora Inicio:</label>
-                <input type="time" v-model="newBlock.hora_inicio" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
-              </div>
-              <div>
-                <label class="block font-bold text-slate-700 mb-1">Fecha Fin:</label>
-                <input type="date" v-model="newBlock.fecha_fin" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
-              </div>
-              <div>
-                <label class="block font-bold text-slate-700 mb-1">Hora Fin:</label>
-                <input type="time" v-model="newBlock.hora_fin" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div>
-                <label class="block font-bold text-slate-700 mb-1">Motivo del Bloqueo:</label>
-                <input type="text" v-model="newBlock.motivo" placeholder="Ej: Cirugía Programada, Congreso Urológico, Vacaciones" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
-              </div>
-              <div>
-                <label class="block font-bold text-slate-700 mb-1">Sede (Opcional - dejar vacío para todas):</label>
-                <select v-model="newBlock.sede_id" class="w-full p-2 rounded-xl border border-slate-300 bg-white">
-                  <option :value="null">Todas las sedes del Dr. Lisandro</option>
-                  <option v-for="s in sedes" :key="s.id" :value="s.id">{{ s.nombre }}</option>
-                </select>
+              <!-- Selector de Modo de Bloqueo -->
+              <div class="flex items-center gap-1.5 p-1 bg-amber-200/60 rounded-2xl shrink-0 self-start sm:self-center">
+                <button
+                  type="button"
+                  @click="blockMode = 'dia'"
+                  class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer"
+                  :class="blockMode === 'dia' ? 'bg-amber-800 text-white shadow-xs' : 'text-amber-950 hover:bg-amber-300/60'"
+                >
+                  🚫 Bloquear Día Completo
+                </button>
+                <button
+                  type="button"
+                  @click="blockMode = 'rango'"
+                  class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer"
+                  :class="blockMode === 'rango' ? 'bg-amber-800 text-white shadow-xs' : 'text-amber-950 hover:bg-amber-300/60'"
+                >
+                  ⏱️ Por Horas / Rango
+                </button>
               </div>
             </div>
 
-            <div class="flex justify-end">
-              <button 
-                type="button" 
-                @click="handleCreateBlock" 
-                :disabled="savingBlock" 
-                class="px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl text-xs shadow-md transition disabled:opacity-50 cursor-pointer"
-              >
-                {{ savingBlock ? 'Guardando bloqueo...' : '+ Aplicar Bloqueo a la Agenda' }}
-              </button>
+            <!-- MODO 1: BLOQUEAR DÍA COMPLETO (RÁPIDO Y DIRECTO) -->
+            <div v-if="blockMode === 'dia'" class="bg-white/90 border border-amber-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                
+                <!-- Selector de Fecha -->
+                <div>
+                  <label class="block font-bold text-slate-800 mb-1.5">
+                    Fecha a bloquear (Día que NO atiende): *
+                  </label>
+                  <input 
+                    type="date" 
+                    v-model="singleDayDate" 
+                    :min="minTodayDate"
+                    class="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-hidden shadow-2xs" 
+                  />
+                  <small class="text-[10px] text-slate-500 mt-1 block">
+                    Seleccione el día en que no atenderá pacientes.
+                  </small>
+                </div>
+
+                <!-- Motivo Predefinido -->
+                <div>
+                  <label class="block font-bold text-slate-800 mb-1.5">
+                    Motivo de la no atención:
+                  </label>
+                  <select 
+                    v-model="singleDayMotivoPreset" 
+                    class="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden shadow-2xs"
+                  >
+                    <option value="No atiendo consultas en este día (Día No Laborable)">🚫 No atiendo en consultorio este día</option>
+                    <option value="Procedimiento Quirúrgico / Quirófano">🏥 Día Quirúrgico / Cirugías</option>
+                    <option value="Congreso Médico / Jornada Científica Urológica">🎓 Congreso Médico / Conferencia</option>
+                    <option value="Día Libre / Descanso / Vacaciones Médicas">🏖️ Día Libre / Vacaciones</option>
+                    <option value="Asuntos Personales y Administrativos">💼 Permiso o Asuntos Personales</option>
+                    <option value="otro">✏️ Escribir otro motivo personalizado...</option>
+                  </select>
+
+                  <input 
+                    v-if="singleDayMotivoPreset === 'otro'" 
+                    type="text" 
+                    v-model="singleDayCustomMotivo" 
+                    placeholder="Escriba el motivo médico..."
+                    class="w-full mt-2 p-2 rounded-xl border border-amber-300 bg-amber-50/50 text-xs focus:outline-hidden"
+                  />
+                </div>
+
+                <!-- Sede -->
+                <div>
+                  <label class="block font-bold text-slate-800 mb-1.5">
+                    Sede que aplica:
+                  </label>
+                  <select 
+                    v-model="singleDaySedeId" 
+                    class="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden shadow-2xs"
+                  >
+                    <option :value="null">Todas las sedes (Bloqueo Total)</option>
+                    <option v-for="s in sedes" :key="s.id" :value="s.id">{{ s.nombre }}</option>
+                  </select>
+                  <small class="text-[10px] text-slate-500 mt-1 block">
+                    Aplica a todas las sedes o a una en específico.
+                  </small>
+                </div>
+
+              </div>
+
+              <!-- Botón de Acción -->
+              <div class="flex items-center justify-between pt-2 border-t border-slate-100 flex-wrap gap-2">
+                <span class="text-[11px] text-amber-900 font-medium">
+                  Al confirmar, esta fecha quedará <strong>bloqueada inmediatamente</strong> para reservas de pacientes.
+                </span>
+
+                <button 
+                  type="button" 
+                  @click="handleCreateSingleDayBlock" 
+                  :disabled="savingBlock || !singleDayDate" 
+                  class="px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white font-extrabold rounded-xl text-xs shadow-md transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                  </svg>
+                  <span>{{ savingBlock ? 'Bloqueando día...' : '🚫 Bloquear este Día para Pacientes' }}</span>
+                </button>
+              </div>
             </div>
+
+            <!-- MODO 2: BLOQUEAR POR HORAS O RANGO -->
+            <div v-else class="bg-white/90 border border-amber-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Fecha Inicio:</label>
+                  <input type="date" v-model="newBlock.fecha_inicio" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Hora Inicio:</label>
+                  <input type="time" v-model="newBlock.hora_inicio" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Fecha Fin:</label>
+                  <input type="date" v-model="newBlock.fecha_fin" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Hora Fin:</label>
+                  <input type="time" v-model="newBlock.hora_fin" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Motivo del Bloqueo:</label>
+                  <input type="text" v-model="newBlock.motivo" placeholder="Ej: Cirugía Programada, Descanso" class="w-full p-2 rounded-xl border border-slate-300 bg-white" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Sede:</label>
+                  <select v-model="newBlock.sede_id" class="w-full p-2 rounded-xl border border-slate-300 bg-white">
+                    <option :value="null">Todas las sedes del Dr. Lisandro</option>
+                    <option v-for="s in sedes" :key="s.id" :value="s.id">{{ s.nombre }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="flex justify-end pt-2 border-t border-slate-100">
+                <button 
+                  type="button" 
+                  @click="handleCreateBlock" 
+                  :disabled="savingBlock" 
+                  class="px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl text-xs shadow-md transition disabled:opacity-50 cursor-pointer"
+                >
+                  {{ savingBlock ? 'Guardando bloqueo...' : '+ Aplicar Bloqueo por Horas' }}
+                </button>
+              </div>
+            </div>
+
           </div>
 
-          <!-- Lista de Bloqueos Activos -->
-          <div class="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
-            <table class="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
-                  <th class="p-3"># ID</th>
-                  <th class="p-3">Intervalo de Bloqueo</th>
-                  <th class="p-3">Motivo</th>
-                  <th class="p-3">Sede Afectada</th>
-                  <th class="p-3 text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100">
-                <tr v-for="b in bloqueos" :key="b.id" class="hover:bg-slate-50/70 transition">
-                  <td class="p-3 font-mono font-bold text-amber-900">#BLQ-{{ b.id }}</td>
-                  <td class="p-3 font-medium text-slate-800 whitespace-nowrap">
-                    {{ b.fecha_inicio }} <span class="text-slate-400">hasta</span> {{ b.fecha_fin }}
-                  </td>
-                  <td class="p-3 font-bold text-slate-700">{{ b.motivo }}</td>
-                  <td class="p-3 text-slate-600">{{ b.sede_nombre || 'Todas las sedes' }}</td>
-                  <td class="p-3 text-right">
-                    <button 
-                      type="button" 
-                      @click="deleteBloqueo(b.id)" 
-                      class="px-3 py-1 bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white rounded-lg font-bold text-xs transition cursor-pointer"
-                    >
-                      Desbloquear
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="!bloqueos.length">
-                  <td colspan="5" class="p-8 text-center text-slate-400 text-xs">
-                    No hay bloqueos activos. Todos los turnos regulares están disponibles para reserva de pacientes.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Tabla / Lista de Días Bloqueados Activos -->
+          <div class="border border-slate-200 rounded-3xl overflow-hidden shadow-2xs bg-white">
+            <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="font-extrabold text-xs sm:text-sm text-slate-900">
+                  Días y Horarios Bloqueados en el Calendario
+                </span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">
+                  {{ bloqueos.length }} activos
+                </span>
+              </div>
+              <button 
+                type="button" 
+                @click="loadBloqueos" 
+                class="text-xs text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <span>↻ Actualizar</span>
+              </button>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
+                    <th class="p-3.5"># ID</th>
+                    <th class="p-3.5">Fecha o Período Bloqueado</th>
+                    <th class="p-3.5">Tipo de Bloqueo</th>
+                    <th class="p-3.5">Motivo Indicado</th>
+                    <th class="p-3.5">Sede Médica</th>
+                    <th class="p-3.5 text-right">Acción de Liberación</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <tr v-for="b in bloqueos" :key="b.id" class="hover:bg-slate-50/70 transition">
+                    <td class="p-3.5 font-mono font-bold text-amber-900">#BLQ-{{ b.id }}</td>
+                    
+                    <td class="p-3.5 font-bold text-slate-900 whitespace-nowrap">
+                      <span v-if="b.es_dia_completo" class="text-rose-700 font-mono text-sm">
+                        📅 {{ b.fecha_dia || (b.fecha_inicio ? b.fecha_inicio.split(' ')[0] : '') }}
+                      </span>
+                      <span v-else class="font-mono text-slate-700 text-xs">
+                        {{ b.fecha_inicio }} &rarr; {{ b.fecha_fin }}
+                      </span>
+                    </td>
+
+                    <td class="p-3.5">
+                      <span v-if="b.es_dia_completo" class="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
+                        🔴 DÍA COMPLETO BLOQUEADO
+                      </span>
+                      <span v-else class="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                        ⏱️ Franja de Horas
+                      </span>
+                    </td>
+
+                    <td class="p-3.5 font-medium text-slate-800 max-w-[200px] truncate" :title="b.motivo">
+                      {{ b.motivo }}
+                    </td>
+
+                    <td class="p-3.5 text-slate-600 font-medium">
+                      {{ b.sede_nombre || 'Todas las sedes' }}
+                    </td>
+
+                    <td class="p-3.5 text-right whitespace-nowrap">
+                      <button 
+                        type="button" 
+                        @click="deleteBloqueo(b.id)" 
+                        class="px-3.5 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-300 rounded-xl font-bold text-xs transition cursor-pointer shadow-2xs"
+                        title="Desbloquear este día y permitir que los pacientes agenden citas"
+                      >
+                        🟢 Habilitar Día / Desbloquear
+                      </button>
+                    </td>
+                  </tr>
+
+                  <tr v-if="!bloqueos.length">
+                    <td colspan="6" class="p-10 text-center text-slate-400 text-xs">
+                      No hay ningún día bloqueado. El Dr. Lisandro Márquez tiene disponibilidad abierta en todas sus fechas habituales.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
         </div>

@@ -67,6 +67,8 @@ const confirmedData = ref(null);
 const availableSlots = ref([]);
 const loadingSlots = ref(false);
 const slotErrorMessage = ref('');
+const isDateBlockedByDoctor = ref(false);
+const doctorBlockedReason = ref('');
 
 // Formato internacional de teléfono
 const formattedFullPhone = computed(() => {
@@ -130,6 +132,8 @@ watch(() => props.isOpen, (open) => {
     selectedTime.value = '';
     availableSlots.value = [];
     slotErrorMessage.value = '';
+    isDateBlockedByDoctor.value = false;
+    doctorBlockedReason.value = '';
     caseSymptoms.value = '';
 
     setupDatesRange();
@@ -167,11 +171,19 @@ watch(() => props.preselectedServiceId, (newId) => {
 
 // Consultar disponibilidad real al seleccionar o cambiar fecha o servicio
 const fetchAvailability = async () => {
-  if (!selectedDate.value) return;
+  if (!selectedDate.value) {
+    isDateBlockedByDoctor.value = false;
+    doctorBlockedReason.value = '';
+    availableSlots.value = [];
+    selectedTime.value = '';
+    return;
+  }
 
   const day = new Date(selectedDate.value + 'T00:00:00').getDay();
   if (day === 0) {
     slotErrorMessage.value = 'Los domingos el consultorio permanece cerrado. Por favor elija un día de Lunes a Sábado.';
+    isDateBlockedByDoctor.value = false;
+    doctorBlockedReason.value = '';
     availableSlots.value = [];
     selectedTime.value = '';
     return;
@@ -179,6 +191,8 @@ const fetchAvailability = async () => {
 
   loadingSlots.value = true;
   slotErrorMessage.value = '';
+  isDateBlockedByDoctor.value = false;
+  doctorBlockedReason.value = '';
   selectedTime.value = '';
 
   try {
@@ -189,40 +203,49 @@ const fetchAvailability = async () => {
     const res = await fetch(url);
     if (res.ok) {
       let data = {};
-    try {
-      data = await res.json();
-    } catch (e) {
-      data = { mensaje: 'Error de respuesta del servidor' };
-    }
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = { mensaje: 'Error de respuesta del servidor' };
+      }
+
+      // 1. Caso de día bloqueado explícitamente por el doctor en su portal
+      if (data.dia_bloqueado || (data.disponible === false && data.motivo)) {
+        isDateBlockedByDoctor.value = true;
+        doctorBlockedReason.value = data.motivo || 'El Dr. Lisandro Márquez indicó que no atiende pacientes en esta fecha.';
+        availableSlots.value = [];
+        selectedTime.value = '';
+        return;
+      }
+
+      // 2. Comprobar si hay turnos disponibles
       if (data.slots && data.slots.length) {
+        const hayLibres = data.slots.some(s => s.disponible);
+        if (!hayLibres) {
+          isDateBlockedByDoctor.value = true;
+          doctorBlockedReason.value = data.motivo || 'Todos los turnos de esta fecha ya han sido reservados o bloqueados por el médico.';
+          availableSlots.value = [];
+          selectedTime.value = '';
+          return;
+        }
+
+        isDateBlockedByDoctor.value = false;
+        doctorBlockedReason.value = '';
         availableSlots.value = data.slots;
       } else {
-        slotErrorMessage.value = data.motivo || 'No hay turnos disponibles para esta fecha. Por favor seleccione otro día.';
+        isDateBlockedByDoctor.value = true;
+        doctorBlockedReason.value = data.motivo || 'No hay turnos disponibles para esta fecha. Por favor seleccione otro día.';
         availableSlots.value = [];
+        selectedTime.value = '';
       }
     } else {
-      // Fallback de horarios en caso de falla de red temporal
-      availableSlots.value = [
-        { hora: '08:30', hora_fin: '09:15', disponible: true },
-        { hora: '09:15', hora_fin: '10:00', disponible: true },
-        { hora: '10:00', hora_fin: '10:45', disponible: true },
-        { hora: '11:00', hora_fin: '11:45', disponible: true },
-        { hora: '14:00', hora_fin: '14:45', disponible: true },
-        { hora: '14:45', hora_fin: '15:30', disponible: true },
-        { hora: '15:30', hora_fin: '16:15', disponible: true }
-      ];
+      slotErrorMessage.value = 'No se pudo conectar con el servidor para verificar disponibilidad. Por favor intente nuevamente.';
+      availableSlots.value = [];
     }
   } catch (err) {
     console.warn('Error al consultar disponibilidad:', err);
-    availableSlots.value = [
-      { hora: '08:30', hora_fin: '09:15', disponible: true },
-      { hora: '09:15', hora_fin: '10:00', disponible: true },
-      { hora: '10:00', hora_fin: '10:45', disponible: true },
-      { hora: '11:00', hora_fin: '11:45', disponible: true },
-      { hora: '14:00', hora_fin: '14:45', disponible: true },
-      { hora: '14:45', hora_fin: '15:30', disponible: true },
-      { hora: '15:30', hora_fin: '16:15', disponible: true }
-    ];
+    slotErrorMessage.value = 'Error al consultar disponibilidad médica. Por favor seleccione nuevamente la fecha.';
+    availableSlots.value = [];
   } finally {
     loadingSlots.value = false;
   }
@@ -250,6 +273,10 @@ const nextStep = () => {
   if (step.value === 2) {
     if (!selectedDate.value) {
       emit('toast', { msg: 'Por favor selecciona una fecha para tu consulta.', type: 'warning' });
+      return;
+    }
+    if (isDateBlockedByDoctor.value) {
+      emit('toast', { msg: `Esta fecha está bloqueada por el doctor (${doctorBlockedReason.value || 'No atiende consultas'}). Por favor elija otra fecha.`, type: 'warning' });
       return;
     }
     if (!selectedTime.value) {
@@ -727,6 +754,27 @@ const downloadCalendar = () => {
                 <small class="text-[11px] text-slate-500 mt-1 block">
                   Atención disponible de Lunes a Sábado en sedes de Caracas, Guatire y Barlovento.
                 </small>
+
+                <!-- ALERTA CUANDO EL DOCTOR BLOQUEÓ ESTA FECHA EN SU PORTAL -->
+                <div v-if="isDateBlockedByDoctor" class="mt-3 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-950 space-y-2 animate-fade-in shadow-xs">
+                  <div class="flex items-center gap-2 font-black text-xs sm:text-sm text-rose-800">
+                    <svg class="w-5 h-5 shrink-0 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                    </svg>
+                    <span>Fecha No Disponible para Consultas Médicas</span>
+                  </div>
+                  <p class="text-xs leading-relaxed text-rose-900 font-medium">
+                    El <strong>Dr. Lisandro Márquez</strong> ha indicado en su portal que <strong>no atenderá pacientes</strong> en esta fecha (<span class="font-bold underline">{{ selectedDate }}</span>).
+                  </p>
+                  <div class="p-2.5 bg-white/90 rounded-xl border border-rose-200 text-xs font-semibold text-rose-800 flex items-center gap-2">
+                    <span class="text-rose-500">Motivo:</span>
+                    <span class="font-normal italic">{{ doctorBlockedReason }}</span>
+                  </div>
+                  <p class="text-[11px] text-rose-700 font-medium">
+                    👉 Por favor, seleccione otro día en el calendario superior para agendar su consulta.
+                  </p>
+                </div>
               </div>
 
               <!-- Horarios en Tiempo Real -->
@@ -806,7 +854,8 @@ const downloadCalendar = () => {
                 <button 
                   type="button" 
                   @click="nextStep" 
-                  class="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition cursor-pointer"
+                  :disabled="isDateBlockedByDoctor || !selectedTime || !selectedDate"
+                  class="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Revisar Resumen y Confirmar →
                 </button>

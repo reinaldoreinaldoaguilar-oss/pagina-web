@@ -22,23 +22,18 @@ const customClientId = ref(localStorage.getItem('custom_google_client_id') || ''
 
 const googleClientId = computed(() => {
   const id = customClientId.value || envClientId;
-  // Solo se considera válido si tiene formato real de Google Cloud
-  return (id && id.trim().length > 25 && id.includes('googleusercontent.com')) ? id.trim() : '';
+  return (id && id.trim().length > 20 && id.includes('googleusercontent.com')) ? id.trim() : '';
 });
 
 const buttonContainer = ref(null);
 const errorMessage = ref('');
 const isGisLoaded = ref(false);
-const showClientConfig = ref(false);
-const clientInput = ref(customClientId.value);
-
-// Modo asistido con cuenta de Google detectada
-const userEmailInput = ref('reinaldoreinaldoaguilar@gmail.com');
-const isLoggingDemo = ref(false);
+const showHelpGuide = ref(false);
+const clientInput = ref(customClientId.value || '');
 
 const handleCredentialResponse = async (response) => {
   if (!response || !response.credential) {
-    emit('error', 'No se recibió credencial de Google');
+    emit('error', 'No se recibió credencial criptográfica de Google');
     return;
   }
   try {
@@ -46,14 +41,12 @@ const handleCredentialResponse = async (response) => {
     const res = await loginWithGoogleCredential(response.credential);
     emit('success', res);
   } catch (err) {
-    errorMessage.value = err.message || 'Error al autenticar con Google';
+    errorMessage.value = err.message || 'Error al autenticar y validar con Google';
     emit('error', errorMessage.value);
   }
 };
 
 const renderGoogleButton = () => {
-  // Solo intentar inicializar con Google GIS si hay un client_id válido configurado
-  // para evitar el Error 400: Missing required parameter client_id de Google
   if (!googleClientId.value) {
     isGisLoaded.value = false;
     return;
@@ -91,59 +84,32 @@ const renderGoogleButton = () => {
   }
 };
 
-// Autenticación directa asistida con cuenta de Google (sin Error 400)
-const handleDirectGoogleLogin = async () => {
-  const email = (userEmailInput.value || 'reinaldoreinaldoaguilar@gmail.com').trim().toLowerCase();
-  if (!email || !email.includes('@')) {
-    errorMessage.value = 'Por favor ingresa un correo electrónico válido';
+const saveCustomClientId = () => {
+  const cleanId = (clientInput.value || '').trim();
+  if (!cleanId) {
+    errorMessage.value = 'Por favor pega un Client ID válido de Google Cloud';
     return;
   }
 
-  isLoggingDemo.value = true;
+  if (!cleanId.includes('googleusercontent.com')) {
+    errorMessage.value = 'El Client ID debe tener el formato oficial: xxxxx.apps.googleusercontent.com';
+    return;
+  }
+
+  customClientId.value = cleanId;
+  localStorage.setItem('custom_google_client_id', cleanId);
   errorMessage.value = '';
-
-  try {
-    const rawName = email.split('@')[0].replace(/[._-]/g, ' ');
-    const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-
-    const payload = {
-      sub: `google_user_${Math.abs(hashString(email))}`,
-      email: email,
-      name: formattedName || 'Paciente Google',
-      picture: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
-    };
-
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    const assistedCredential = `demo_google_${encoded}`;
-
-    const res = await loginWithGoogleCredential(assistedCredential);
-    emit('success', res);
-  } catch (err) {
-    errorMessage.value = err.message || 'Error al iniciar sesión con Google';
-    emit('error', errorMessage.value);
-  } finally {
-    isLoggingDemo.value = false;
-  }
-};
-
-const hashString = (str) => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash;
-};
-
-const saveCustomClientId = () => {
-  if (clientInput.value && clientInput.value.trim()) {
-    const cleanId = clientInput.value.trim();
-    customClientId.value = cleanId;
-    localStorage.setItem('custom_google_client_id', cleanId);
-    showClientConfig.value = false;
-    errorMessage.value = '';
+  
+  setTimeout(() => {
     renderGoogleButton();
-  }
+  }, 100);
+};
+
+const removeCustomClientId = () => {
+  customClientId.value = '';
+  clientInput.value = '';
+  localStorage.removeItem('custom_google_client_id');
+  isGisLoaded.value = false;
 };
 
 onMounted(() => {
@@ -164,86 +130,101 @@ onMounted(() => {
 <template>
   <div class="flex flex-col items-center w-full max-w-sm mx-auto">
     
-    <!-- CASO 1: Si hay Client ID válido de Google Cloud, renderizar botón oficial de Google GIS -->
-    <div v-if="googleClientId" class="w-full flex flex-col items-center">
+    <!-- CASO 1: Si hay Client ID válido de Google Cloud configurado -> Botón Oficial Criptográfico -->
+    <div v-if="googleClientId" class="w-full flex flex-col items-center space-y-3">
       <div ref="buttonContainer" class="min-h-[44px] flex items-center justify-center"></div>
-      <p class="text-[10px] text-emerald-700 font-medium mt-1.5 flex items-center gap-1">
-        <span>✓</span> Conexión segura con Google Cloud activa
-      </p>
+      
+      <div class="flex items-center justify-between w-full text-[11px] px-2 text-slate-400">
+        <span class="flex items-center gap-1 text-emerald-600 font-semibold">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          Google OAuth 2.0 Activo
+        </span>
+        <button 
+          type="button" 
+          @click="removeCustomClientId" 
+          class="hover:text-rose-600 underline cursor-pointer"
+          title="Cambiar credencial de Google"
+        >
+          Cambiar Client ID
+        </button>
+      </div>
     </div>
 
-    <!-- CASO 2: Botón de Acceso Inmediato con Google Oficial (Evita Error 400 cuando falta Client ID) -->
-    <div v-else class="w-full space-y-3">
+    <!-- CASO 2: Si aún falta configurar el Client ID oficial de Google Cloud -->
+    <div v-else class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-3 shadow-2xs">
       
-      <!-- Botón Elegante con Estilo Oficial de Google -->
-      <button
-        type="button"
-        @click="handleDirectGoogleLogin"
-        :disabled="isLoggingDemo || authLoading"
-        class="w-full py-3 px-4 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm flex items-center justify-center gap-3 shadow-xs hover:shadow-md transition active:scale-[0.99] cursor-pointer"
-      >
-        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
-        <span v-if="isLoggingDemo || authLoading" class="flex items-center gap-2 text-sky-700">
-          <span class="w-3.5 h-3.5 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></span>
-          Conectando cuenta Google...
-        </span>
-        <span v-else>Continuar con Google</span>
-      </button>
-
-      <!-- Cuenta Google sugerida / editable -->
-      <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-2.5 text-left text-xs">
-        <label class="block text-[10px] text-slate-500 font-bold mb-1 uppercase tracking-wider">
-          Cuenta de Google activa:
-        </label>
-        <div class="flex items-center gap-2">
-          <input 
-            type="email" 
-            v-model="userEmailInput" 
-            class="w-full p-2 bg-white rounded-xl border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-500" 
-            placeholder="tu.correo@gmail.com" 
-          />
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-xs">
+          <svg class="w-4 h-4" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold text-slate-900">Activar Inicio de Sesión Oficial con Google</h4>
+          <p class="text-[10px] text-slate-500">Autenticación real y verificación de cuentas @gmail</p>
         </div>
       </div>
 
-      <!-- Enlace para ingresar Client ID oficial si el desarrollador ya lo creó en Google Cloud -->
-      <div class="pt-1 text-center">
-        <button
-          type="button"
-          @click="showClientConfig = !showClientConfig"
-          class="text-[11px] text-slate-400 hover:text-sky-700 font-semibold underline cursor-pointer"
+      <p class="text-[11px] text-slate-600 leading-relaxed">
+        Para que Google abra la ventana oficial con tu cuenta real (sin Error 400), pega aquí tu <strong>Client ID de Google Cloud</strong>:
+      </p>
+
+      <div class="space-y-1.5">
+        <input 
+          type="text" 
+          v-model="clientInput" 
+          placeholder="ej: 123456789-xxxx.apps.googleusercontent.com" 
+          class="w-full p-2.5 bg-white rounded-xl border border-slate-300 font-mono text-[11px] text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500" 
+        />
+        <button 
+          type="button" 
+          @click="saveCustomClientId" 
+          class="w-full py-2 px-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-[0.99] cursor-pointer flex items-center justify-center gap-1.5"
         >
-          {{ showClientConfig ? 'Ocultar configuración de Google Cloud' : '¿Configurar Client ID oficial de Google Cloud?' }}
+          <span>Activar Botón Oficial de Google</span>
+          <svg class="w-3.5 h-3.5 stroke-current fill-none" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Guía paso a paso -->
+      <div class="pt-1">
+        <button 
+          type="button" 
+          @click="showHelpGuide = !showHelpGuide" 
+          class="text-[10px] text-sky-700 hover:text-sky-900 font-semibold underline cursor-pointer"
+        >
+          {{ showHelpGuide ? '▲ Ocultar pasos de Google Cloud' : '▼ ¿Cómo obtener el Client ID en 1 minuto?' }}
         </button>
 
-        <div v-if="showClientConfig" class="mt-2.5 p-3 bg-sky-50 border border-sky-200 rounded-2xl text-left text-xs space-y-2 animate-fade-in">
-          <label class="block font-bold text-sky-950 text-[11px]">Pegar Client ID de Google Cloud:</label>
-          <input 
-            type="text" 
-            v-model="clientInput" 
-            placeholder="xxxxxx.apps.googleusercontent.com" 
-            class="w-full p-2 rounded-xl border border-sky-300 bg-white font-mono text-[11px]" 
-          />
-          <div class="flex justify-end gap-2">
-            <button 
-              type="button" 
-              @click="saveCustomClientId" 
-              class="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold"
-            >
-              Guardar y Activar
-            </button>
+        <div v-if="showHelpGuide" class="mt-2 p-2.5 bg-sky-50/70 border border-sky-100 rounded-xl text-[10px] text-slate-700 space-y-1.5 leading-snug">
+          <p><strong>1.</strong> Entra a <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="text-sky-700 underline font-semibold">Google Cloud Console &rarr; Credenciales</a>.</p>
+          <p><strong>2.</strong> Pulsa <strong>Crear credenciales &rarr; ID de cliente OAuth &rarr; Aplicación web</strong>.</p>
+          <p><strong>3.</strong> En <em>Orígenes autorizados de JavaScript</em> añade:</p>
+          <div class="bg-white p-1 rounded font-mono text-[9px] text-slate-800 select-all border border-slate-200">
+            https://pagina-web-flax-eight.vercel.app<br/>
+            http://localhost:5173
           </div>
+          <p><strong>4.</strong> Copia el <em>ID de cliente</em> generado y pégalo arriba.</p>
         </div>
       </div>
 
+    </div>
+
+    <!-- Indicador de validación del backend -->
+    <div v-if="authLoading" class="mt-3 flex items-center gap-2 text-xs text-sky-700 font-semibold animate-pulse">
+      <div class="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
+      <span>Verificando credencial médica con Google...</span>
     </div>
 
     <!-- Mensaje de Error -->
-    <div v-if="errorMessage" class="mt-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-center w-full animate-fade-in">
+    <div v-if="errorMessage" class="mt-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-center w-full">
       {{ errorMessage }}
     </div>
 
