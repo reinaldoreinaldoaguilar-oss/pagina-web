@@ -333,22 +333,7 @@ const submitBooking = async () => {
     }
   } catch (error) {
     console.error('Error al agendar cita:', error);
-    // Modo offline resiliente
-    confirmedData.value = {
-      citaId: Math.floor(1000 + Math.random() * 9000),
-      codigo: `#CIT-${Math.floor(1000 + Math.random() * 9000)}`,
-      nombre: currentUser.value?.nombre || 'Paciente Registrado',
-      correo: currentUser.value?.correo || '',
-      telefono: fullPhone,
-      servicio: selectedServiceObj.value.nombre_servicio,
-      duracion: selectedServiceObj.value.duracion_minutos || 45,
-      sede: selectedSedeObj.value.nombre,
-      direccion: selectedSedeObj.value.detalle,
-      sintomas: caseSymptoms.value.trim(),
-      fecha: selectedDate.value,
-      hora: selectedTime.value
-    };
-    emit('toast', { msg: '¡Cita solicitada satisfactoriamente!', type: 'success' });
+    emit('toast', { msg: 'No se pudo conectar con el servidor. Por favor intenta de nuevo en unos segundos.', type: 'danger' });
   } finally {
     loading.value = false;
   }
