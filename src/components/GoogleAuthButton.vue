@@ -120,7 +120,7 @@ const handleDirectGoogleLogin = async (targetEmail = null) => {
     };
 
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    const tokenCredential = `assisted_google_${encoded}`;
+    const tokenCredential = `demo_google_${encoded}`;
 
     const res = await loginWithGoogleCredential(tokenCredential);
     emit('success', res);
