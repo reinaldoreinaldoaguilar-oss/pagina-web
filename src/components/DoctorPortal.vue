@@ -26,8 +26,97 @@ const loadingBloqueos = ref(false);
 const activeTab = ref('citas'); // 'citas' | 'pacientes' | 'bloqueos'
 
 // Formulario de bloqueo de agenda y días que no atiende
-const blockMode = ref('dia'); // 'dia' | 'rango'
+const blockMode = ref('semanal'); // 'semanal' | 'dia' | 'rango'
 const singleDayDate = ref('');
+
+// Gestión de Días de Atención Semanales por Sede
+const selectedScheduleSedeId = ref(1);
+const horariosEdit = ref({
+  0: { dia: 'Lunes', activo: true, hora_inicio: '08:30', hora_fin: '16:30', intervalo: 45 },
+  1: { dia: 'Martes', activo: false, hora_inicio: '08:30', hora_fin: '16:30', intervalo: 45 },
+  2: { dia: 'Miércoles', activo: true, hora_inicio: '08:30', hora_fin: '16:30', intervalo: 45 },
+  3: { dia: 'Jueves', activo: false, hora_inicio: '08:30', hora_fin: '16:30', intervalo: 45 },
+  4: { dia: 'Viernes', activo: true, hora_inicio: '08:30', hora_fin: '16:30', intervalo: 45 },
+  5: { dia: 'Sábado', activo: false, hora_inicio: '08:30', hora_fin: '13:00', intervalo: 45 },
+  6: { dia: 'Domingo', activo: false, hora_inicio: '08:30', hora_fin: '13:00', intervalo: 45 }
+});
+const savingWeeklySchedule = ref(false);
+const loadingWeeklySchedule = ref(false);
+
+const loadWeeklyScheduleForSede = async (sedeId) => {
+  if (!sedeId) return;
+  loadingWeeklySchedule.value = true;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/disponibilidad/resumen-sede/${sedeId}`);
+    if (res.ok) {
+      const data = await res.json();
+      const porDia = data.horarios_por_dia || {};
+      const diasNombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+      for (let i = 0; i <= 6; i++) {
+        if (porDia[i]) {
+          horariosEdit.value[i] = {
+            dia: diasNombres[i],
+            activo: porDia[i].activo,
+            hora_inicio: porDia[i].hora_inicio || '08:30',
+            hora_fin: porDia[i].hora_fin || (i === 5 ? '13:00' : '16:30'),
+            intervalo: porDia[i].intervalo || 45
+          };
+        } else {
+          horariosEdit.value[i] = {
+            dia: diasNombres[i],
+            activo: (data.dias_activos || []).includes(i),
+            hora_inicio: '08:30',
+            hora_fin: i === 5 ? '13:00' : '16:30',
+            intervalo: 45
+          };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error al cargar horarios de sede:', e);
+  } finally {
+    loadingWeeklySchedule.value = false;
+  }
+};
+
+const handleSaveWeeklySchedule = async () => {
+  if (!selectedScheduleSedeId.value) return;
+  savingWeeklySchedule.value = true;
+  try {
+    const diasArray = Object.keys(horariosEdit.value).map(k => ({
+      dia_semana: parseInt(k),
+      activo: horariosEdit.value[k].activo,
+      hora_inicio: horariosEdit.value[k].hora_inicio,
+      hora_fin: horariosEdit.value[k].hora_fin,
+      intervalo_minutos: horariosEdit.value[k].intervalo || 45
+    }));
+
+    const res = await fetch(`${API_BASE_URL}/api/doctor/horarios/sede/${selectedScheduleSedeId.value}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token.value}`
+      },
+      body: JSON.stringify({ dias: diasArray })
+    });
+
+    if (res.ok) {
+      const sedeObj = sedes.value.find(s => s.id === selectedScheduleSedeId.value);
+      emit('toast', {
+        msg: `✓ Días de atención guardados para ${sedeObj ? sedeObj.nombre : 'la sede'}. Los pacientes verán esta disponibilidad al agendar.`,
+        type: 'success'
+      });
+      await loadWeeklyScheduleForSede(selectedScheduleSedeId.value);
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      emit('toast', { msg: errData.mensaje || 'Error al guardar horarios', type: 'danger' });
+    }
+  } catch (e) {
+    emit('toast', { msg: 'Error de conexión al guardar horarios', type: 'danger' });
+  } finally {
+    savingWeeklySchedule.value = false;
+  }
+};
 const singleDayMotivoPreset = ref('No atiendo consultas en este día (Día No Laborable)');
 const singleDayCustomMotivo = ref('');
 const singleDaySedeId = ref(null);
@@ -143,8 +232,9 @@ const loadDashboardData = async () => {
       loadingPacientes.value = false;
     }
 
-    // 4. Cargar bloqueos de agenda
+    // 4. Cargar bloqueos de agenda y horarios semanales
     loadBloqueos();
+    loadWeeklyScheduleForSede(selectedScheduleSedeId.value);
 
     // 5. Cargar sedes
     try {
@@ -758,9 +848,9 @@ const downloadAssistantPDF = () => {
             <svg class="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>Bloqueos de Agenda</span>
+            <span>Días & Disponibilidad</span>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="activeTab === 'bloqueos' ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700'">
-              {{ bloqueos.length }}
+              {{ bloqueos.length }} bloqueos
             </span>
           </button>
 
@@ -903,15 +993,23 @@ const downloadAssistantPDF = () => {
                 </p>
               </div>
 
-              <!-- Selector de Modo de Bloqueo -->
-              <div class="flex items-center gap-1.5 p-1 bg-amber-200/60 rounded-2xl shrink-0 self-start sm:self-center">
+              <!-- Selector de Modo de Disponibilidad y Bloqueo -->
+              <div class="flex items-center gap-1.5 p-1 bg-amber-200/60 rounded-2xl shrink-0 self-start sm:self-center flex-wrap">
+                <button
+                  type="button"
+                  @click="blockMode = 'semanal'"
+                  class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer"
+                  :class="blockMode === 'semanal' ? 'bg-amber-800 text-white shadow-xs' : 'text-amber-950 hover:bg-amber-300/60'"
+                >
+                  🗓️ Días Semanales por Sede
+                </button>
                 <button
                   type="button"
                   @click="blockMode = 'dia'"
                   class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer"
                   :class="blockMode === 'dia' ? 'bg-amber-800 text-white shadow-xs' : 'text-amber-950 hover:bg-amber-300/60'"
                 >
-                  🚫 Bloquear Día Completo
+                  🚫 Bloquear Día Específico
                 </button>
                 <button
                   type="button"
@@ -924,8 +1022,119 @@ const downloadAssistantPDF = () => {
               </div>
             </div>
 
+            <!-- MODO 0: DÍAS DE ATENCIÓN SEMANALES POR SEDE (HORARIOS Y DÍAS HÁBILES) -->
+            <div v-if="blockMode === 'semanal'" class="bg-white/95 border border-amber-200 rounded-2xl p-4 sm:p-6 space-y-5">
+              
+              <!-- Selector de Sede a Configurar -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl">
+                <div>
+                  <label class="block text-xs font-bold text-slate-800 mb-1">Sede Médica a Configurar:</label>
+                  <p class="text-[11px] text-slate-500">Seleccione la clínica para definir en qué días atenderá consultas.</p>
+                </div>
+                <select 
+                  v-model="selectedScheduleSedeId" 
+                  @change="loadWeeklyScheduleForSede(selectedScheduleSedeId)"
+                  class="p-2.5 rounded-xl border border-amber-300 bg-white text-xs font-bold text-amber-950 focus:ring-2 focus:ring-amber-500 shadow-2xs cursor-pointer min-w-[260px]"
+                >
+                  <option v-for="s in sedes" :key="s.id" :value="s.id">{{ s.nombre }}</option>
+                </select>
+              </div>
+
+              <!-- Indicador de Carga -->
+              <div v-if="loadingWeeklySchedule" class="py-8 text-center text-xs text-amber-800 animate-pulse font-semibold">
+                Cargando configuración de horarios para esta sede...
+              </div>
+
+              <!-- Matriz de los 7 Días de la Semana -->
+              <div v-else class="space-y-3">
+                <div 
+                  v-for="(cfg, diaKey) in horariosEdit" 
+                  :key="diaKey"
+                  class="p-3.5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3"
+                  :class="cfg.activo ? 'bg-emerald-50/50 border-emerald-200 shadow-2xs' : 'bg-slate-50 border-slate-200 opacity-80'"
+                >
+                  <!-- Nombre del Día y Switch Toggle -->
+                  <div class="flex items-center gap-3 min-w-[180px]">
+                    <div class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs" :class="cfg.activo ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'">
+                      {{ cfg.dia.slice(0, 2) }}
+                    </div>
+                    <div>
+                      <span class="text-xs font-extrabold text-slate-900 block">{{ cfg.dia }}</span>
+                      <span class="text-[10px] font-semibold" :class="cfg.activo ? 'text-emerald-700' : 'text-slate-400'">
+                        {{ cfg.activo ? '✓ Atiende consultas' : '✕ No atiende en esta sede' }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Botón Switch Toggle -->
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      @click="cfg.activo = !cfg.activo"
+                      class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer shadow-2xs"
+                      :class="cfg.activo ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'"
+                    >
+                      {{ cfg.activo ? 'Habilitado' : 'Deshabilitado' }}
+                    </button>
+                  </div>
+
+                  <!-- Configuración de Horas si está Activo -->
+                  <div v-if="cfg.activo" class="flex items-center gap-2 flex-wrap text-xs">
+                    <div class="flex items-center gap-1">
+                      <span class="text-[11px] text-slate-500 font-medium">De:</span>
+                      <input 
+                        type="time" 
+                        v-model="cfg.hora_inicio" 
+                        class="p-1.5 rounded-lg border border-slate-300 bg-white font-mono text-xs font-semibold focus:ring-1 focus:ring-emerald-500" 
+                      />
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="text-[11px] text-slate-500 font-medium">Hasta:</span>
+                      <input 
+                        type="time" 
+                        v-model="cfg.hora_fin" 
+                        class="p-1.5 rounded-lg border border-slate-300 bg-white font-mono text-xs font-semibold focus:ring-1 focus:ring-emerald-500" 
+                      />
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="text-[11px] text-slate-500 font-medium">Turnos de:</span>
+                      <select 
+                        v-model="cfg.intervalo" 
+                        class="p-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold"
+                      >
+                        <option :value="30">30 min</option>
+                        <option :value="45">45 min</option>
+                        <option :value="60">60 min</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div v-else class="text-xs text-slate-400 italic">
+                    Día bloqueado automáticamente para los pacientes en esta sede.
+                  </div>
+                </div>
+
+                <!-- Botón de Guardar Horarios Semanales -->
+                <div class="pt-3 flex justify-between items-center border-t border-slate-200 flex-wrap gap-2">
+                  <span class="text-[11px] text-slate-500">
+                    💡 Al guardar, los pacientes sólo podrán elegir los días habilitados para esta sede.
+                  </span>
+                  <button 
+                    type="button" 
+                    @click="handleSaveWeeklySchedule"
+                    :disabled="savingWeeklySchedule"
+                    class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs shadow-md transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                  >
+                    <span>💾</span>
+                    <span>{{ savingWeeklySchedule ? 'Guardando horarios...' : 'Guardar Días de Atención para esta Sede' }}</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
             <!-- MODO 1: BLOQUEAR DÍA COMPLETO (RÁPIDO Y DIRECTO) -->
-            <div v-if="blockMode === 'dia'" class="bg-white/90 border border-amber-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div v-else-if="blockMode === 'dia'" class="bg-white/90 border border-amber-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                 
                 <!-- Selector de Fecha -->

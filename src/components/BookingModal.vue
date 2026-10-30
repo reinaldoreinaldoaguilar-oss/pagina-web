@@ -70,6 +70,69 @@ const slotErrorMessage = ref('');
 const isDateBlockedByDoctor = ref(false);
 const doctorBlockedReason = ref('');
 
+// Horarios y días configurados por el doctor para la sede seleccionada
+const currentSedeSchedule = ref(null);
+const loadingSedeSchedule = ref(false);
+
+const loadSedeSchedule = async (sedeId) => {
+  if (!sedeId) return;
+  loadingSedeSchedule.value = true;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/disponibilidad/resumen-sede/${sedeId}`);
+    if (res.ok) {
+      currentSedeSchedule.value = await res.json();
+    }
+  } catch (err) {
+    console.warn('Error al obtener resumen de sede:', err);
+  } finally {
+    loadingSedeSchedule.value = false;
+  }
+};
+
+// Próximos días disponibles calculados en tiempo real según configuración del doctor
+const upcomingAvailableDates = computed(() => {
+  if (!currentSedeSchedule.value || !currentSedeSchedule.value.dias_activos) {
+    return [];
+  }
+  const diasActivos = currentSedeSchedule.value.dias_activos;
+  const bloqueos = (currentSedeSchedule.value.bloqueos_activos || []).map(b => b.fecha);
+  const diasNombresCortos = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const mesesCortos = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  const results = [];
+  const cur = new Date();
+  cur.setDate(cur.getDate() + 1);
+
+  for (let i = 0; i < 45 && results.length < 5; i++) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+
+    const jsDay = cur.getDay(); // 0=Dom, 1=Lun, ..., 6=Sab
+    const pyDay = jsDay === 0 ? 6 : jsDay - 1; // 0=Lun, 6=Dom
+
+    if (diasActivos.includes(pyDay) && !bloqueos.includes(dateStr)) {
+      results.push({
+        fecha: dateStr,
+        diaTexto: diasNombresCortos[pyDay],
+        diaNumero: cur.getDate(),
+        mesTexto: mesesCortos[cur.getMonth()],
+        label: `${diasNombresCortos[pyDay]} ${cur.getDate()} ${mesesCortos[cur.getMonth()]}`
+      });
+    }
+
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  return results;
+});
+
+const selectQuickDate = (dateStr) => {
+  selectedDate.value = dateStr;
+  fetchAvailability();
+};
+
 // Formato internacional de teléfono
 const formattedFullPhone = computed(() => {
   if (!rawPhoneNumber.value || !rawPhoneNumber.value.trim()) return '';
@@ -138,6 +201,7 @@ watch(() => props.isOpen, (open) => {
 
     setupDatesRange();
     syncUserData();
+    loadSedeSchedule(selectedSedeObj.value?.id || 1);
 
     if (props.preselectedServiceId) {
       selectedServiceId.value = props.preselectedServiceId;
@@ -168,6 +232,15 @@ watch(() => props.preselectedServiceId, (newId) => {
     selectedServiceId.value = newId;
   }
 });
+
+watch(selectedSedeObj, (newSede) => {
+  if (newSede?.id) {
+    loadSedeSchedule(newSede.id);
+    if (selectedDate.value) {
+      fetchAvailability();
+    }
+  }
+}, { immediate: true });
 
 // Consultar disponibilidad real al seleccionar o cambiar fecha o servicio
 const fetchAvailability = async () => {
@@ -701,7 +774,9 @@ const downloadCalendar = () => {
                     <div>
                       <strong class="text-xs font-bold text-slate-900 block">{{ s.nombre }}</strong>
                       <span class="text-[11px] text-slate-500 block">{{ s.detalle }}</span>
-                      <span class="text-[10px] text-sky-700 font-medium block mt-0.5">🗓️ {{ s.dias }}</span>
+                      <span class="text-[10px] text-sky-700 font-medium block mt-0.5">
+                        🗓️ {{ (selectedSedeObj.id === s.id && currentSedeSchedule?.dias_atencion_texto) ? ('Atención: ' + currentSedeSchedule.dias_atencion_texto) : s.dias }}
+                      </span>
                     </div>
                     <div class="w-5 h-5 rounded-full border flex items-center justify-center shrink-0"
                          :class="selectedSedeObj.id === s.id ? 'border-sky-600 bg-sky-600 text-white' : 'border-slate-300'">
@@ -748,6 +823,39 @@ const downloadCalendar = () => {
 
             <!-- PASO 2: CALENDARIO Y DISPONIBILIDAD REAL -->
             <div v-if="step === 2" class="space-y-4 animate-fade-in">
+              
+              <!-- Resumen de Días Habilitados por el Doctor para esta Sede -->
+              <div class="p-3 rounded-2xl bg-sky-50/80 border border-sky-200 text-xs space-y-2 shadow-2xs">
+                <div class="flex items-center justify-between flex-wrap gap-1">
+                  <span class="font-extrabold text-sky-950 flex items-center gap-1.5">
+                    <span>📍</span>
+                    <span>Sede: <strong>{{ selectedSedeObj.nombre }}</strong></span>
+                  </span>
+                  <span v-if="currentSedeSchedule" class="text-[10px] font-extrabold bg-sky-200/80 text-sky-900 px-2.5 py-0.5 rounded-full">
+                    Atención: {{ currentSedeSchedule.dias_atencion_texto }}
+                  </span>
+                </div>
+
+                <!-- Botones de Acceso Rápido a Próximas Fechas Habilitadas -->
+                <div v-if="upcomingAvailableDates.length">
+                  <span class="text-[11px] text-slate-600 font-semibold block mb-1.5">
+                    🗓️ Próximas fechas con consulta habilitada (toque para elegir):
+                  </span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="quick in upcomingAvailableDates"
+                      :key="quick.fecha"
+                      type="button"
+                      @click="selectQuickDate(quick.fecha)"
+                      class="px-2.5 py-1 rounded-xl text-xs font-extrabold transition cursor-pointer border"
+                      :class="selectedDate === quick.fecha ? 'bg-sky-600 text-white border-sky-600 shadow-xs' : 'bg-white text-slate-700 border-slate-300 hover:border-sky-400 hover:bg-sky-50 shadow-2xs'"
+                    >
+                      {{ quick.label }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label class="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
                   <span>Seleccione la Fecha de Consulta: *</span>
@@ -784,6 +892,24 @@ const downloadCalendar = () => {
                   <p class="text-[11px] text-rose-700 font-medium">
                     👉 Por favor, seleccione otro día en el calendario superior para agendar su consulta.
                   </p>
+                  
+                  <!-- Sugerencias automáticas de fechas donde el doctor sí atiende -->
+                  <div v-if="upcomingAvailableDates.length" class="mt-2.5 pt-2 border-t border-rose-200">
+                    <span class="text-[11px] font-bold text-rose-900 block mb-1.5">
+                      💡 Puede elegir directamente cualquiera de estas fechas disponibles:
+                    </span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        v-for="quick in upcomingAvailableDates"
+                        :key="quick.fecha"
+                        type="button"
+                        @click="selectQuickDate(quick.fecha)"
+                        class="px-2.5 py-1 rounded-xl bg-white border border-rose-300 text-rose-900 text-xs font-extrabold hover:bg-rose-100 transition shadow-2xs cursor-pointer"
+                      >
+                        {{ quick.label }}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
