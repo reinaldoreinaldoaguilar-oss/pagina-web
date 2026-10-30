@@ -4,7 +4,7 @@ import doctorData from '../data/doctor.json';
 import fallbackServices from '../data/servicios.json';
 import countriesList from '../data/countries.json';
 import { API_BASE_URL } from '../config/api';
-import { currentUser, isAuthenticated, isPatient, token, updatePatientProfile } from '../services/auth';
+import { currentUser, isAuthenticated, isPatient, token, updatePatientProfile, logout } from '../services/auth';
 import GoogleAuthButton from './GoogleAuthButton.vue';
 
 const props = defineProps({
@@ -620,8 +620,8 @@ const downloadCalendar = () => {
             <div class="mb-5 bg-sky-50/80 border border-sky-200/80 rounded-2xl p-3 flex items-center justify-between gap-3">
               <div class="flex items-center gap-2.5 min-w-0">
                 <img 
-                  v-if="currentUser?.foto_perfil" 
-                  :src="currentUser.foto_perfil" 
+                  v-if="currentUser?.foto_url || currentUser?.foto_perfil" 
+                  :src="currentUser.foto_url || currentUser.foto_perfil" 
                   alt="Avatar" 
                   class="w-8 h-8 rounded-full border border-sky-300 object-cover shrink-0" 
                 />
@@ -638,9 +638,19 @@ const downloadCalendar = () => {
                 </div>
               </div>
 
-              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-sky-200 text-sky-900 uppercase tracking-wide shrink-0">
-                Paciente
-              </span>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-sky-200 text-sky-900 uppercase tracking-wide">
+                  Paciente
+                </span>
+                <button
+                  type="button"
+                  @click="logout(); emit('toast', { msg: 'Sesión cerrada. Puede ingresar con otra cuenta de Google.', type: 'info' })"
+                  class="text-[11px] text-slate-500 hover:text-rose-600 font-medium cursor-pointer"
+                  title="Cambiar cuenta de Google"
+                >
+                  Cambiar
+                </button>
+              </div>
             </div>
 
             <!-- Stepper Visual -->

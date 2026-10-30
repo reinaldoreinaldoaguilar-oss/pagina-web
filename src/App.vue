@@ -101,6 +101,7 @@ onMounted(async () => {
       @openPortal="isPortalOpen = true"
       @openPatientPortal="handleOpenPatientHistory"
       @openLogin="isAuthModalOpen = true"
+      @toast="showToast"
     />
 
     <!-- 2. CONTENEDOR DEL CONTENIDO PRINCIPAL CON MARGEN DINÁMICO -->
@@ -117,6 +118,7 @@ onMounted(async () => {
         @openPortal="isPortalOpen = true"
         @openPatientPortal="handleOpenPatientHistory"
         @openLogin="isAuthModalOpen = true"
+      @toast="showToast"
       />
 
       <!-- Vistas Multi-página Renderizadas por vue-router -->
@@ -126,6 +128,7 @@ onMounted(async () => {
           @selectServiceToBook="openBookingWithService"
           @openPatientPortal="handleOpenPatientHistory"
           @openLogin="isAuthModalOpen = true"
+      @toast="showToast"
         />
       </main>
 

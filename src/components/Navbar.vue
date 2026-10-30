@@ -1,6 +1,6 @@
 <script setup>
 import doctorData from '../data/doctor.json';
-import { currentUser, isAuthenticated } from '../services/auth';
+import { currentUser, isAuthenticated, logout } from '../services/auth';
 
 defineProps({
   isDoctorLogged: {
@@ -13,7 +13,12 @@ defineProps({
   }
 });
 
-defineEmits(['openBooking', 'openPortal', 'openPatientPortal', 'openLogin']);
+const emit = defineEmits(['openBooking', 'openPortal', 'openPatientPortal', 'openLogin', 'toast']);
+
+const handleLogout = () => {
+  logout();
+  emit('toast', { msg: 'Sesión de Google cerrada correctamente', type: 'info' });
+};
 </script>
 
 <template>
@@ -48,7 +53,7 @@ defineEmits(['openBooking', 'openPortal', 'openPatientPortal', 'openLogin']);
       <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
         
         <!-- ESTADO 1: Paciente CON sesión iniciada -> Muestra botón oficial de "Mis Citas / Historial" -->
-        <div v-if="isAuthenticated" class="flex items-center gap-2">
+        <div v-if="isAuthenticated" class="flex items-center gap-1.5 sm:gap-2">
           <button 
             type="button"
             @click="$emit('openPatientPortal')"
@@ -56,8 +61,8 @@ defineEmits(['openBooking', 'openPortal', 'openPatientPortal', 'openLogin']);
             title="Abrir Mi Historial de Citas"
           >
             <img 
-              v-if="currentUser?.foto_url" 
-              :src="currentUser.foto_url" 
+              v-if="currentUser?.foto_url || currentUser?.foto_perfil" 
+              :src="currentUser.foto_url || currentUser.foto_perfil" 
               alt="Avatar" 
               class="w-5 h-5 rounded-full object-cover border border-sky-300"
             />
@@ -66,6 +71,19 @@ defineEmits(['openBooking', 'openPortal', 'openPatientPortal', 'openLogin']);
             </span>
             <span class="max-w-[110px] sm:max-w-[140px] truncate">{{ currentUser?.nombre?.split(' ')[0] || 'Mi Cuenta' }}</span>
             <span class="text-[10px] text-sky-700 font-extrabold bg-sky-200/70 px-1.5 py-0.5 rounded-md">Mis Citas</span>
+          </button>
+
+          <!-- Botón de Cerrar Sesión Paciente -->
+          <button 
+            type="button"
+            @click="handleLogout"
+            class="p-1.5 sm:px-2 sm:py-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+            title="Cerrar sesión de Google"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span class="hidden md:inline text-[11px]">Salir</span>
           </button>
         </div>
 
