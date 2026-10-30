@@ -27,6 +27,17 @@ const router = createRouter({
   }
 });
 
+// Guardia de Navegación: Control de Acceso y Rutas Privadas
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('med_auth_token') || localStorage.getItem('dr_lisandro_jwt_token');
+  if (to.meta.requiresAuth && !token) {
+    // Si la ruta requiere autenticación y no hay sesión activa, redirigir al inicio
+    next({ name: 'home', query: { loginRequired: 'true' } });
+  } else {
+    next();
+  }
+});
+
 router.afterEach((to) => {
   document.title = `${to.meta.title || 'Inicio'} | Dr. Lisandro Márquez - Urólogo (UCV)`;
 });
