@@ -41,11 +41,11 @@ defineEmits(['openPortal']);
           <h4 class="text-white font-bold text-sm mb-4">Páginas del Sitio</h4>
           <ul class="space-y-2 text-xs">
             <li><router-link to="/" class="hover:text-sky-400 transition">Inicio</router-link></li>
-            <li><router-link to="/especialista" class="hover:text-sky-400 transition">El Especialista (UCV)</router-link></li>
-            <li><router-link to="/guia-medica" class="hover:text-sky-400 transition">Guía Médica al Paciente</router-link></li>
-            <li><router-link to="/servicios" class="hover:text-sky-400 transition">Servicios & 3 Ecos</router-link></li>
-            <li><router-link to="/test-prostata" class="hover:text-sky-400 transition">Test de Próstata (IPSS)</router-link></li>
-            <li><router-link to="/citas" class="hover:text-sky-400 transition">Sedes & Citas</router-link></li>
+            <li><router-link to="/especialista" class="hover:text-sky-400 transition">El Especialista</router-link></li>
+            <li><router-link to="/guia-medica" class="hover:text-sky-400 transition">Guía Médica</router-link></li>
+            <li><router-link to="/servicios" class="hover:text-sky-400 transition">Servicios</router-link></li>
+            <li><router-link to="/test-prostata" class="hover:text-sky-400 transition">Salud Masculina</router-link></li>
+            <li><router-link to="/citas" class="hover:text-sky-400 transition">Sedes y Citas</router-link></li>
           </ul>
         </div>
 
