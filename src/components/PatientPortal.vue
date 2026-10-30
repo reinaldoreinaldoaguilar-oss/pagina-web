@@ -351,7 +351,13 @@ const confirmRescheduleAppointment = async () => {
       })
     });
 
-    const data = await res.json();
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (e) {
+      data = { mensaje: `Error en el servidor al procesar la reprogramación (HTTP ${res.status}). Por favor intente nuevamente.` };
+    }
+
     if (!res.ok) {
       throw new Error(data.mensaje || 'Error al reprogramar la cita médica');
     }
