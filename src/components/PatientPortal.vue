@@ -25,13 +25,117 @@ const appointmentToCancel = ref(null);
 const cancelReason = ref('');
 const cancelingLoading = ref(false);
 
+// Sedes de atención médica
+const sedesList = [
+  {
+    id: 1,
+    nombre: 'Caracas — Clínica VidaMed',
+    detalle: 'Sede Quirúrgica & Consultorios Principales',
+    ciudad: 'Caracas',
+    dias: 'Lunes a Viernes'
+  },
+  {
+    id: 2,
+    nombre: 'Guatire — Clínica San Martín de Porres',
+    detalle: 'Unidad Urológica Dr. Gregorio Hernández',
+    ciudad: 'Guatire',
+    dias: 'Martes y Jueves'
+  },
+  {
+    id: 3,
+    nombre: 'Barlovento — Clínica Caucagua',
+    detalle: 'Jornadas Especiales Urológicas',
+    ciudad: 'Barlovento',
+    dias: 'Sábados'
+  }
+];
+
 const showRescheduleModal = ref(false);
 const appointmentToReschedule = ref(null);
+const rescheduleSedeId = ref(1);
+const rescheduleSedeSchedule = ref(null);
+const loadingRescheduleSchedule = ref(false);
 const newDate = ref('');
 const newTime = ref('');
 const availableSlots = ref([]);
 const loadingSlots = ref(false);
+const isRescheduleDateBlocked = ref(false);
+const rescheduleBlockedReason = ref('');
 const reschedulingLoading = ref(false);
+const minRescheduleDate = ref('');
+const maxRescheduleDate = ref('');
+
+const selectedRescheduleSedeObj = computed(() => {
+  return sedesList.find(s => s.id === rescheduleSedeId.value) || sedesList[0];
+});
+
+const setupRescheduleDatesRange = () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  minRescheduleDate.value = tomorrow.toISOString().split('T')[0];
+
+  const max = new Date();
+  max.setDate(max.getDate() + 60);
+  maxRescheduleDate.value = max.toISOString().split('T')[0];
+};
+
+const loadRescheduleSedeSchedule = async (sedeId) => {
+  if (!sedeId) return;
+  loadingRescheduleSchedule.value = true;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/disponibilidad/resumen-sede/${sedeId}`);
+    if (res.ok) {
+      rescheduleSedeSchedule.value = await res.json();
+    }
+  } catch (e) {
+    console.warn('Error al cargar disponibilidad de sede para reprogramación:', e);
+  } finally {
+    loadingRescheduleSchedule.value = false;
+  }
+};
+
+const upcomingRescheduleDates = computed(() => {
+  if (!rescheduleSedeSchedule.value || !rescheduleSedeSchedule.value.dias_activos) {
+    return [];
+  }
+  const diasActivos = rescheduleSedeSchedule.value.dias_activos;
+  const bloqueos = (rescheduleSedeSchedule.value.bloqueos_activos || []).map(b => b.fecha);
+  const diasNombresCortos = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const mesesCortos = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  const results = [];
+  const cur = new Date();
+  cur.setDate(cur.getDate() + 1);
+
+  for (let i = 0; i < 45 && results.length < 5; i++) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+
+    const jsDay = cur.getDay(); // 0=Dom, 1=Lun, ..., 6=Sab
+    const pyDay = jsDay === 0 ? 6 : jsDay - 1; // 0=Lun, 6=Dom
+
+    if (diasActivos.includes(pyDay) && !bloqueos.includes(dateStr)) {
+      results.push({
+        fecha: dateStr,
+        diaTexto: diasNombresCortos[pyDay],
+        diaNumero: cur.getDate(),
+        mesTexto: mesesCortos[cur.getMonth()],
+        label: `${diasNombresCortos[pyDay]} ${cur.getDate()} ${mesesCortos[cur.getMonth()]}`
+      });
+    }
+
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  return results;
+});
+
+const selectQuickRescheduleDate = (dateStr) => {
+  newDate.value = dateStr;
+  onRescheduleDateChange();
+};
 
 // Perfil editable
 const editPhone = ref('');
@@ -144,30 +248,80 @@ const confirmCancelAppointment = async () => {
   }
 };
 
-// Reprogramación de Cita
+// Reprogramación de Cita con soporte de sedes y disponibilidad
 const openRescheduleDialog = (cita) => {
   appointmentToReschedule.value = cita;
+  rescheduleSedeId.value = cita.sede_id || cita.sede?.id || 1;
   newDate.value = '';
   newTime.value = '';
   availableSlots.value = [];
+  isRescheduleDateBlocked.value = false;
+  rescheduleBlockedReason.value = '';
+  setupRescheduleDatesRange();
+  loadRescheduleSedeSchedule(rescheduleSedeId.value);
   showRescheduleModal.value = true;
 };
 
+const onRescheduleSedeChange = () => {
+  newDate.value = '';
+  newTime.value = '';
+  availableSlots.value = [];
+  isRescheduleDateBlocked.value = false;
+  rescheduleBlockedReason.value = '';
+  loadRescheduleSedeSchedule(rescheduleSedeId.value);
+};
+
 const onRescheduleDateChange = async () => {
-  if (!newDate.value || !appointmentToReschedule.value) return;
+  if (!newDate.value || !appointmentToReschedule.value) {
+    isRescheduleDateBlocked.value = false;
+    rescheduleBlockedReason.value = '';
+    availableSlots.value = [];
+    newTime.value = '';
+    return;
+  }
+
   loadingSlots.value = true;
   newTime.value = '';
+  isRescheduleDateBlocked.value = false;
+  rescheduleBlockedReason.value = '';
+  availableSlots.value = [];
 
   try {
-    const sedeId = appointmentToReschedule.value.sede?.id || 1;
-    const srvId = 1;
+    const sedeId = rescheduleSedeId.value || appointmentToReschedule.value.sede_id || appointmentToReschedule.value.sede?.id || 1;
+    const srvId = appointmentToReschedule.value.servicio_id || 1;
     const res = await fetch(`${API_BASE_URL}/api/disponibilidad?fecha=${newDate.value}&sede_id=${sedeId}&servicio_id=${srvId}`);
+    
     if (res.ok) {
       const data = await res.json();
-      availableSlots.value = data.slots || [];
+
+      // Caso 1: Día bloqueado por el doctor o no atendido en esa sede
+      if (data.dia_no_atiende_sede || data.dia_bloqueado || (data.disponible === false && data.motivo)) {
+        isRescheduleDateBlocked.value = true;
+        rescheduleBlockedReason.value = data.motivo || 'El Dr. Lisandro Márquez no atiende pacientes en esta fecha o sede.';
+        availableSlots.value = [];
+        return;
+      }
+
+      // Caso 2: Turnos disponibles
+      if (data.slots && data.slots.length) {
+        availableSlots.value = data.slots;
+        const hayLibres = data.slots.some(s => s.disponible);
+        if (!hayLibres) {
+          isRescheduleDateBlocked.value = true;
+          rescheduleBlockedReason.value = data.motivo || 'Todos los turnos de esta fecha ya se encuentran ocupados o reservados por otros pacientes.';
+        }
+      } else {
+        isRescheduleDateBlocked.value = true;
+        rescheduleBlockedReason.value = data.motivo || 'No hay turnos disponibles para esta fecha. Por favor seleccione otro día.';
+      }
+    } else {
+      isRescheduleDateBlocked.value = true;
+      rescheduleBlockedReason.value = 'Error al consultar disponibilidad del servidor. Por favor intente con otra fecha.';
     }
   } catch (e) {
     console.warn('Error al consultar horarios para reprogramar:', e);
+    isRescheduleDateBlocked.value = true;
+    rescheduleBlockedReason.value = 'Error de conexión al consultar horarios. Por favor intente nuevamente.';
   } finally {
     loadingSlots.value = false;
   }
@@ -175,7 +329,7 @@ const onRescheduleDateChange = async () => {
 
 const confirmRescheduleAppointment = async () => {
   if (!appointmentToReschedule.value || !newDate.value || !newTime.value) {
-    emit('toast', { msg: 'Por favor selecciona fecha y horario para reprogramar', type: 'warning' });
+    emit('toast', { msg: 'Por favor selecciona fecha y horario para reprogramar tu cita.', type: 'warning' });
     return;
   }
 
@@ -192,7 +346,7 @@ const confirmRescheduleAppointment = async () => {
       },
       body: JSON.stringify({
         nueva_fecha_hora: nuevaFechaHora,
-        nueva_sede_id: appointmentToReschedule.value.sede?.id || 1,
+        nueva_sede_id: rescheduleSedeId.value,
         motivo: 'Reprogramada por el paciente desde el portal web'
       })
     });
@@ -202,7 +356,7 @@ const confirmRescheduleAppointment = async () => {
       throw new Error(data.mensaje || 'Error al reprogramar la cita médica');
     }
 
-    emit('toast', { msg: `¡Cita reprogramada con éxito para el ${nuevaFechaHora}!`, type: 'success' });
+    emit('toast', { msg: `✓ ¡Cita reprogramada con éxito para el ${nuevaFechaHora}!`, type: 'success' });
     showRescheduleModal.value = false;
     appointmentToReschedule.value = null;
     await loadPatientAppointments();
@@ -633,57 +787,188 @@ watch(() => props.isOpen, (open) => {
   </div>
 
   <!-- MODAL DE REPROGRAMACIÓN ATÓMICA DE CITA -->
-  <div v-if="showRescheduleModal" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-pop-in space-y-4">
+  <div v-if="showRescheduleModal && appointmentToReschedule" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl animate-pop-in space-y-4 max-h-[92vh] overflow-y-auto border border-slate-100">
+      
+      <!-- Encabezado del Modal -->
       <div class="flex justify-between items-center border-b border-slate-200 pb-3">
-        <h4 class="text-sm font-bold text-slate-900">Reprogramar Consulta Médica</h4>
-        <button type="button" @click="showRescheduleModal = false" class="text-slate-400 hover:text-slate-700 text-xl leading-none">&times;</button>
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center font-bold text-sm">
+            🗓️
+          </div>
+          <div>
+            <h4 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">Reprogramar Consulta Médica</h4>
+            <p class="text-[11px] text-slate-500">Seleccione sede, nueva fecha y horario según disponibilidad del Dr. Lisandro Márquez</p>
+          </div>
+        </div>
+        <button 
+          type="button" 
+          @click="showRescheduleModal = false" 
+          class="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-xl transition cursor-pointer"
+        >
+          &times;
+        </button>
       </div>
 
-      <p class="text-xs text-slate-600 leading-relaxed">
-        Selecciona un nuevo día y horario disponible. La reprogramación es <strong>atómica y segura</strong>: si el nuevo horario no estuviera libre, tu cita original permanece intacta.
-      </p>
+      <!-- Resumen de la Cita Actual a Reprogramar -->
+      <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 space-y-2 text-xs">
+        <div class="flex justify-between items-start gap-2">
+          <span class="text-slate-500 font-medium">Servicio Clínico:</span>
+          <strong class="text-slate-800 text-right">{{ appointmentToReschedule.servicio }}</strong>
+        </div>
+        <div class="flex justify-between items-start gap-2">
+          <span class="text-slate-500 font-medium">Horario Actual Pautado:</span>
+          <span class="font-bold text-slate-700 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
+            {{ appointmentToReschedule.fecha }} a las {{ appointmentToReschedule.hora }}
+          </span>
+        </div>
+      </div>
 
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Elegir Nueva Fecha:</label>
-          <input
-            type="date"
-            v-model="newDate"
-            @change="onRescheduleDateChange"
-            class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-          />
+      <!-- 1. Selección de Sede Médica -->
+      <div>
+        <label class="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+          <span>1. Sede de Atención Médica: *</span>
+          <span class="text-[10px] text-sky-600 font-semibold">Presencial</span>
+        </label>
+        <select
+          v-model="rescheduleSedeId"
+          @change="onRescheduleSedeChange"
+          class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden shadow-2xs cursor-pointer"
+        >
+          <option v-for="s in sedesList" :key="s.id" :value="s.id">
+            {{ s.nombre }} — ({{ s.dias }})
+          </option>
+        </select>
+      </div>
+
+      <!-- 2. Información de Días Habilitados por el Doctor para esta Sede -->
+      <div class="p-3 rounded-2xl bg-sky-50/80 border border-sky-200 text-xs space-y-2">
+        <div class="flex items-center justify-between flex-wrap gap-1">
+          <span class="font-extrabold text-sky-950 flex items-center gap-1.5">
+            <span>📍</span>
+            <span>{{ selectedRescheduleSedeObj.nombre }}</span>
+          </span>
+          <span v-if="rescheduleSedeSchedule" class="text-[10px] font-extrabold bg-sky-200/90 text-sky-900 px-2.5 py-0.5 rounded-full">
+            Atención: {{ rescheduleSedeSchedule.dias_atencion_texto }}
+          </span>
         </div>
 
-        <div v-if="newDate">
-          <label class="block text-xs font-bold text-slate-700 mb-1">Horarios Disponibles en Tiempo Real:</label>
-          
-          <div v-if="loadingSlots" class="text-center py-6 text-xs text-sky-600 animate-pulse font-semibold">
-            Consultando disponibilidad médica...
-          </div>
-
-          <div v-else-if="availableSlots.length" class="grid grid-cols-4 gap-2">
+        <!-- Botones de Acceso Rápido a Próximas Fechas Habilitadas -->
+        <div v-if="upcomingRescheduleDates.length">
+          <span class="text-[11px] text-slate-600 font-semibold block mb-1.5">
+            🗓️ Próximas fechas con consulta habilitada (toque para elegir):
+          </span>
+          <div class="flex flex-wrap gap-1.5">
             <button
-              v-for="s in availableSlots"
-              :key="s.hora"
+              v-for="quick in upcomingRescheduleDates"
+              :key="quick.fecha"
               type="button"
-              :disabled="!s.disponible"
-              @click="newTime = s.hora"
-              class="py-2 px-1 text-center rounded-lg text-xs font-bold border transition cursor-pointer"
-              :class="!s.disponible ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60' : (newTime === s.hora ? 'bg-sky-600 text-white border-sky-600 shadow-xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-sky-50')"
-              :title="s.motivo || 'Disponible'"
+              @click="selectQuickRescheduleDate(quick.fecha)"
+              class="px-2.5 py-1 rounded-xl text-xs font-extrabold transition cursor-pointer border"
+              :class="newDate === quick.fecha ? 'bg-sky-600 text-white border-sky-600 shadow-xs' : 'bg-white text-slate-700 border-slate-300 hover:border-sky-400 hover:bg-sky-50 shadow-2xs'"
             >
-              {{ s.hora }}
+              {{ quick.label }}
             </button>
           </div>
+        </div>
+      </div>
 
-          <div v-else class="text-center py-4 text-xs text-slate-400">
-            No hay horarios disponibles en esta fecha.
+      <!-- 3. Selección de Nueva Fecha en Calendario -->
+      <div>
+        <label class="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+          <span>2. Seleccione la Nueva Fecha: *</span>
+          <span class="text-[10px] text-slate-500">Anticipación mínima: 1 día</span>
+        </label>
+        <input
+          type="date"
+          v-model="newDate"
+          :min="minRescheduleDate"
+          :max="maxRescheduleDate"
+          @change="onRescheduleDateChange"
+          class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-sky-500 focus:outline-hidden bg-white shadow-2xs cursor-pointer"
+        />
+
+        <!-- ALERTA SI LA FECHA ESTÁ BLOQUEADA POR EL DOCTOR O NO ATIENDE EN ESTA SEDE -->
+        <div v-if="isRescheduleDateBlocked" class="mt-3 p-3.5 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-950 space-y-2 animate-fade-in shadow-xs">
+          <div class="flex items-center gap-2 font-black text-xs text-rose-800">
+            <svg class="w-4 h-4 shrink-0 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+            <span>Fecha No Disponible en esta Sede</span>
+          </div>
+          <p class="text-xs leading-relaxed text-rose-900 font-medium">
+            {{ rescheduleBlockedReason }}
+          </p>
+          <div v-if="upcomingRescheduleDates.length" class="pt-2 border-t border-rose-200">
+            <span class="text-[11px] font-bold text-rose-900 block mb-1">
+              👉 Fechas recomendadas donde el Dr. sí tiene consulta:
+            </span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="quick in upcomingRescheduleDates"
+                :key="quick.fecha"
+                type="button"
+                @click="selectQuickRescheduleDate(quick.fecha)"
+                class="px-2.5 py-1 rounded-xl bg-white border border-rose-300 text-rose-900 text-xs font-extrabold hover:bg-rose-100 transition shadow-2xs cursor-pointer"
+              >
+                {{ quick.label }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="flex gap-2 pt-3">
+      <!-- 4. Selección de Nuevo Horario Disponible -->
+      <div v-if="newDate && !isRescheduleDateBlocked">
+        <label class="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+          <span>3. Seleccione el Nuevo Horario Disponible: *</span>
+          <span class="text-[10px] text-sky-700 font-mono font-semibold">{{ newDate }}</span>
+        </label>
+
+        <!-- Indicador de Carga -->
+        <div v-if="loadingSlots" class="text-center py-6 text-xs text-sky-600 animate-pulse font-semibold">
+          Consultando turnos disponibles en tiempo real...
+        </div>
+
+        <!-- Grilla de Slots -->
+        <div v-else-if="availableSlots.length" class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+          <button
+            v-for="s in availableSlots"
+            :key="s.hora"
+            type="button"
+            :disabled="!s.disponible"
+            @click="s.disponible && (newTime = s.hora)"
+            class="py-2 px-1 text-center rounded-xl text-xs font-extrabold border transition shadow-2xs cursor-pointer"
+            :class="!s.disponible 
+              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50' 
+              : (newTime === s.hora 
+                ? 'bg-sky-600 text-white border-sky-600 shadow-md ring-2 ring-sky-300' 
+                : 'bg-white text-slate-800 border-slate-200 hover:border-sky-400 hover:bg-sky-50')"
+            :title="s.motivo || (s.disponible ? 'Turno disponible' : 'Turno ocupado')"
+          >
+            {{ s.hora }}
+          </button>
+        </div>
+
+        <div v-else class="text-center py-4 text-xs text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+          No hay turnos disponibles para esta fecha.
+        </div>
+      </div>
+
+      <!-- Preview de Confirmación de Reprogramación -->
+      <div v-if="newDate && newTime && !isRescheduleDateBlocked" class="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-950 space-y-1 animate-fade-in">
+        <div class="flex items-center gap-1.5 font-extrabold text-emerald-800">
+          <span>✓</span>
+          <span>Nuevo Horario Seleccionado:</span>
+        </div>
+        <p class="font-medium text-emerald-900">
+          <strong>{{ newDate }} a las {{ newTime }}</strong> en <strong>{{ selectedRescheduleSedeObj.nombre }}</strong>.
+        </p>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="flex gap-2.5 pt-2 border-t border-slate-200">
         <button
           type="button"
           @click="showRescheduleModal = false"
@@ -694,12 +979,13 @@ watch(() => props.isOpen, (open) => {
         <button
           type="button"
           @click="confirmRescheduleAppointment"
-          :disabled="reschedulingLoading || !newDate || !newTime"
-          class="flex-1 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs transition shadow-md disabled:opacity-50 cursor-pointer"
+          :disabled="reschedulingLoading || !newDate || !newTime || isRescheduleDateBlocked"
+          class="flex-2 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs transition shadow-md disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
         >
-          {{ reschedulingLoading ? 'Reprogramando...' : 'Confirmar Nueva Fecha' }}
+          <span>{{ reschedulingLoading ? 'Reprogramando cita...' : 'Confirmar Nueva Fecha' }}</span>
         </button>
       </div>
+
     </div>
   </div>
 </template>
