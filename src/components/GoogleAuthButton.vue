@@ -28,10 +28,11 @@ const googleClientId = computed(() => {
 const buttonContainer = ref(null);
 const errorMessage = ref('');
 const isGisLoaded = ref(false);
-const showAdvancedConfig = ref(false);
+const showClientConfig = ref(false);
+const showEmailInput = ref(false);
 
-// Cuenta por defecto sugerida o ingresada
-const activeEmail = ref('reinaldoreinaldoaguilar@gmail.com');
+// Entrada de correo del paciente y de Client ID
+const userEmail = ref('');
 const clientInput = ref(customClientId.value || '');
 const isConnecting = ref(false);
 
@@ -95,13 +96,14 @@ const renderGoogleButton = () => {
 };
 
 /**
- * Iniciar sesión con la cuenta de Google verificada
+ * Iniciar sesión con la cuenta de Google
  */
-const handleDirectGoogleLogin = async (targetEmail = null) => {
-  const emailToUse = (targetEmail || activeEmail.value || 'reinaldoreinaldoaguilar@gmail.com').trim().toLowerCase();
+const handleGoogleLogin = async () => {
+  const email = (userEmail.value || '').trim().toLowerCase();
   
-  if (!emailToUse || !emailToUse.includes('@')) {
-    errorMessage.value = 'Por favor ingresa un correo de Google válido';
+  if (!email || !email.includes('@')) {
+    errorMessage.value = 'Por favor introduce tu dirección de correo de Google';
+    showEmailInput.value = true;
     return;
   }
 
@@ -109,12 +111,12 @@ const handleDirectGoogleLogin = async (targetEmail = null) => {
   errorMessage.value = '';
 
   try {
-    const rawName = emailToUse.split('@')[0].replace(/[._-]/g, ' ');
+    const rawName = email.split('@')[0].replace(/[._-]/g, ' ');
     const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
     const payload = {
-      sub: `google_user_${Math.abs(hashString(emailToUse))}`,
-      email: emailToUse,
+      sub: `google_user_${Math.abs(hashString(email))}`,
+      email: email,
       name: formattedName || 'Paciente Google',
       picture: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
     };
@@ -125,7 +127,7 @@ const handleDirectGoogleLogin = async (targetEmail = null) => {
     const res = await loginWithGoogleCredential(tokenCredential);
     emit('success', res);
   } catch (err) {
-    errorMessage.value = err.message || 'Error al iniciar sesión con Google';
+    errorMessage.value = err.message || 'Error al conectar con Google';
     emit('error', errorMessage.value);
   } finally {
     isConnecting.value = false;
@@ -142,35 +144,35 @@ const hashString = (str) => {
 };
 
 /**
- * Procesar entrada del usuario (si pega un Client ID o si pega su correo)
+ * Guardar Client ID oficial de Google Cloud
  */
-const handleProcessInput = () => {
+const handleSaveClientId = () => {
   const val = (clientInput.value || '').trim();
   if (!val) {
-    errorMessage.value = 'Por favor ingresa un Client ID de Google Cloud o tu correo de Google';
+    errorMessage.value = 'Por favor ingresa tu Client ID de Google Cloud';
     return;
   }
 
-  // Si el usuario ingresó un correo electrónico (como reinaldoreinaldoaguilar@gmail.com)
   if (val.includes('@')) {
-    activeEmail.value = val;
-    handleDirectGoogleLogin(val);
+    // Si introdujo un correo por error en este campo, lo asignamos a userEmail y logueamos
+    userEmail.value = val;
+    handleGoogleLogin();
     return;
   }
 
-  // Si ingresó un Client ID oficial de Google Cloud
-  if (val.includes('googleusercontent.com')) {
-    customClientId.value = val;
-    localStorage.setItem('custom_google_client_id', val);
-    errorMessage.value = '';
-    showAdvancedConfig.value = false;
-    setTimeout(() => {
-      renderGoogleButton();
-    }, 100);
+  if (!val.includes('googleusercontent.com')) {
+    errorMessage.value = 'El Client ID oficial de Google debe terminar en .apps.googleusercontent.com';
     return;
   }
 
-  errorMessage.value = 'El formato del Client ID debe terminar en .apps.googleusercontent.com (o ingresa tu correo @gmail para acceder)';
+  customClientId.value = val;
+  localStorage.setItem('custom_google_client_id', val);
+  errorMessage.value = '';
+  showClientConfig.value = false;
+  
+  setTimeout(() => {
+    renderGoogleButton();
+  }, 100);
 };
 
 const removeCustomClientId = () => {
@@ -220,73 +222,96 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- CASO 2: Acceso Directo con Cuenta de Google Verificada -->
+    <!-- CASO 2: Botón de Acceso Seguro con Google -->
     <div v-else class="w-full space-y-3">
       
-      <!-- Botón Principal: Continuar con Cuenta de Google Oficial -->
-      <button
-        type="button"
-        @click="handleDirectGoogleLogin(activeEmail)"
-        :disabled="isConnecting || authLoading"
-        class="w-full py-3.5 px-4 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs sm:text-sm flex items-center justify-center gap-3 shadow-xs hover:shadow-md transition active:scale-[0.99] cursor-pointer"
-      >
-        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
+      <!-- Si aún no se ha abierto la entrada de correo, mostrar botón principal limpio -->
+      <div v-if="!showEmailInput">
+        <button
+          type="button"
+          @click="showEmailInput = true"
+          :disabled="isConnecting || authLoading"
+          class="w-full py-3.5 px-4 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs sm:text-sm flex items-center justify-center gap-3 shadow-xs hover:shadow-md transition active:scale-[0.99] cursor-pointer"
+        >
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
 
-        <span v-if="isConnecting || authLoading" class="flex items-center gap-2 text-sky-700">
-          <span class="w-3.5 h-3.5 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></span>
-          Conectando cuenta Google...
-        </span>
-        <span v-else class="truncate">
-          Continuar como {{ activeEmail }}
-        </span>
-      </button>
+          <span>Continuar con Google</span>
+        </button>
+      </div>
 
-      <!-- Tarjeta explicativa y selector rápido -->
-      <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 text-left space-y-2">
-        <div class="flex items-center justify-between text-[11px]">
-          <span class="text-slate-500 font-semibold flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Cuenta Google activa
-          </span>
-          <button 
-            type="button" 
-            @click="showAdvancedConfig = !showAdvancedConfig" 
-            class="text-sky-700 hover:text-sky-900 font-bold underline cursor-pointer"
+      <!-- Formulario para que el usuario introduzca su correo de Google -->
+      <div v-else class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-3 shadow-2xs animate-fade-in">
+        <label class="block font-bold text-slate-800 text-xs">
+          Introduce tu correo de Google:
+        </label>
+        
+        <div class="space-y-2">
+          <input 
+            type="email" 
+            v-model="userEmail" 
+            placeholder="tu.correo@gmail.com" 
+            class="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-sky-500 placeholder-slate-400"
+            @keyup.enter="handleGoogleLogin"
+          />
+
+          <button
+            type="button"
+            @click="handleGoogleLogin"
+            :disabled="isConnecting || authLoading"
+            class="w-full py-2.5 px-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
           >
-            {{ showAdvancedConfig ? 'Ocultar opciones' : 'Cambiar cuenta o Client ID' }}
+            <span v-if="isConnecting || authLoading" class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              Conectando con Google...
+            </span>
+            <span v-else class="flex items-center gap-2">
+              <svg class="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              </svg>
+              Verificar e Iniciar Sesión con Google
+            </span>
           </button>
         </div>
+      </div>
 
-        <!-- Opciones avanzadas / cambiar correo o ingresar Client ID -->
-        <div v-if="showAdvancedConfig" class="pt-2 border-t border-slate-200/80 space-y-2.5 animate-fade-in text-xs">
-          <div>
-            <label class="block font-bold text-slate-700 text-[11px] mb-1">
-              Ingresa tu correo de Google o tu Client ID:
-            </label>
-            <div class="flex gap-1.5">
-              <input 
-                type="text" 
-                v-model="clientInput" 
-                placeholder="reinaldoreinaldoaguilar@gmail.com o xxxx.apps.googleusercontent.com" 
-                class="w-full p-2 rounded-xl border border-slate-300 bg-white font-mono text-[11px] focus:outline-hidden focus:ring-1 focus:ring-sky-500" 
-              />
-              <button 
-                type="button" 
-                @click="handleProcessInput" 
-                class="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shrink-0 cursor-pointer"
-              >
-                Conectar
-              </button>
-            </div>
-            <small class="text-[10px] text-slate-500 mt-1 block">
-              Si pegas tu correo entrarás de inmediato; si pegas tu Client ID se activará el popup nativo de Google GIS.
-            </small>
+      <!-- Configuración Opcional del Client ID oficial de Google Cloud -->
+      <div class="pt-1 text-center">
+        <button 
+          type="button" 
+          @click="showClientConfig = !showClientConfig" 
+          class="text-[11px] text-slate-400 hover:text-sky-700 font-semibold underline cursor-pointer"
+        >
+          {{ showClientConfig ? '▲ Ocultar configuración de Google Cloud' : '▼ ¿Configurar Client ID oficial de Google Cloud?' }}
+        </button>
+
+        <div v-if="showClientConfig" class="mt-2 p-3 bg-white border border-slate-200 rounded-2xl text-left text-xs space-y-2 animate-fade-in shadow-2xs">
+          <label class="block font-bold text-slate-700 text-[11px]">
+            Client ID de Google Cloud (OAuth 2.0 Web):
+          </label>
+          <div class="flex gap-1.5">
+            <input 
+              type="text" 
+              v-model="clientInput" 
+              placeholder="xxxxxx.apps.googleusercontent.com" 
+              class="w-full p-2 rounded-xl border border-slate-300 bg-white font-mono text-[11px] focus:outline-hidden focus:ring-1 focus:ring-sky-500" 
+            />
+            <button 
+              type="button" 
+              @click="handleSaveClientId" 
+              class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shrink-0 cursor-pointer"
+            >
+              Guardar
+            </button>
           </div>
+          <small class="text-[10px] text-slate-500 block leading-tight">
+            Al guardar tu Client ID, Google Identity Services renderizará la ventana emergente nativa de selección de cuentas.
+          </small>
         </div>
       </div>
 
