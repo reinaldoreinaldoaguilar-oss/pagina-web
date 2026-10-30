@@ -188,7 +188,12 @@ const fetchAvailability = async () => {
     
     const res = await fetch(url);
     if (res.ok) {
-      const data = await res.json();
+      let data = {};
+    try {
+      data = await res.json();
+    } catch (e) {
+      data = { mensaje: 'Error de respuesta del servidor' };
+    }
       if (data.slots && data.slots.length) {
         availableSlots.value = data.slots;
       } else {
@@ -297,7 +302,12 @@ const submitBooking = async () => {
       body: JSON.stringify(payload)
     });
 
-    const data = await res.json();
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (e) {
+      data = { mensaje: 'Respuesta del servidor no válida' };
+    }
 
     if (res.ok) {
       confirmedData.value = {
