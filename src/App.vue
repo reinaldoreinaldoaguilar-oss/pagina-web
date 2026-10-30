@@ -8,10 +8,11 @@ import FooterSection from './components/FooterSection.vue';
 import BookingModal from './components/BookingModal.vue';
 import DoctorPortal from './components/DoctorPortal.vue';
 import PatientPortal from './components/PatientPortal.vue';
+import PatientAuthModal from './components/PatientAuthModal.vue';
 import PatientProfileModal from './components/PatientProfileModal.vue';
 import WhatsAppButton from './components/WhatsAppButton.vue';
 import { API_BASE_URL } from './config/api';
-import { fetchCurrentUser, currentUser } from './services/auth';
+import { fetchCurrentUser, currentUser, isAuthenticated } from './services/auth';
 
 // Estado de Colapso de la Barra Lateral Izquierda (con persistencia)
 const isSidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === 'true');
@@ -25,7 +26,8 @@ const toggleSidebar = () => {
 const isBookingOpen = ref(false);
 const preselectedService = ref(null);
 const isPortalOpen = ref(false); // Portal Médico Doctor
-const isPatientPortalOpen = ref(false); // Portal del Paciente (Google)
+const isPatientPortalOpen = ref(false); // Ventana Emergente de Historial de Citas (Solo tras iniciar cuenta)
+const isAuthModalOpen = ref(false); // Modal de Inicio de Sesión con Google
 const isProfileModalOpen = ref(false); // Completar perfil del paciente
 const isDoctorLogged = ref(!!localStorage.getItem('dr_lisandro_jwt_token'));
 const backendOnline = ref(true);
@@ -44,6 +46,22 @@ const showToast = ({ msg, type = 'info' }) => {
 const openBookingWithService = (serviceId = null) => {
   preselectedService.value = serviceId;
   isBookingOpen.value = true;
+};
+
+// Flujo de Acceso al Historial de Citas:
+// La ventana emergente del historial de citas SOLO debe aparecer cuando se inicie la cuenta, NO antes.
+const handleOpenPatientHistory = () => {
+  if (isAuthenticated.value) {
+    isPatientPortalOpen.value = true;
+  } else {
+    isAuthModalOpen.value = true;
+  }
+};
+
+const handleLoginSuccess = () => {
+  isAuthModalOpen.value = false;
+  // Al iniciar cuenta satisfactoriamente, se abre de inmediato la ventana emergente de historial de citas
+  isPatientPortalOpen.value = true;
 };
 
 // Inicialización de sesión y conectividad
@@ -74,17 +92,18 @@ onMounted(async () => {
 <template>
   <div class="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-sky-500 selection:text-white flex relative">
     
-    <!-- 1. BARRA LATERAL IZQUIERDA (Sidebar Plegable con Rutas Reales) -->
+    <!-- 1. BARRA LATERAL IZQUIERDA -->
     <LeftSidebar 
       :isCollapsed="isSidebarCollapsed"
       :isDoctorLogged="isDoctorLogged"
       @toggleCollapse="toggleSidebar"
       @openBooking="openBookingWithService(null)"
       @openPortal="isPortalOpen = true"
-      @openPatientPortal="isPatientPortalOpen = true"
+      @openPatientPortal="handleOpenPatientHistory"
+      @openLogin="isAuthModalOpen = true"
     />
 
-    <!-- 2. CONTENEDOR DEL CONTENIDO PRINCIPAL CON MARGEN DINÁMICO ADAPTATIVO -->
+    <!-- 2. CONTENEDOR DEL CONTENIDO PRINCIPAL CON MARGEN DINÁMICO -->
     <div 
       class="flex-1 flex flex-col justify-between min-h-screen transition-all duration-300 ease-in-out min-w-0 w-full"
       :class="isSidebarCollapsed ? 'ml-20' : 'ml-64'"
@@ -96,7 +115,8 @@ onMounted(async () => {
         :backendOnline="backendOnline"
         @openBooking="openBookingWithService(null)"
         @openPortal="isPortalOpen = true"
-        @openPatientPortal="isPatientPortalOpen = true"
+        @openPatientPortal="handleOpenPatientHistory"
+        @openLogin="isAuthModalOpen = true"
       />
 
       <!-- Vistas Multi-página Renderizadas por vue-router -->
@@ -104,7 +124,8 @@ onMounted(async () => {
         <router-view 
           @openBooking="openBookingWithService(null)"
           @selectServiceToBook="openBookingWithService"
-          @openPatientPortal="isPatientPortalOpen = true"
+          @openPatientPortal="handleOpenPatientHistory"
+          @openLogin="isAuthModalOpen = true"
         />
       </main>
 
@@ -114,7 +135,7 @@ onMounted(async () => {
       />
     </div>
 
-    <!-- 3. Modal de Agendamiento de Citas Médicas (Google OAuth 2.0 Obligatorio) -->
+    <!-- 3. Modal de Agendamiento de Citas Médicas -->
     <BookingModal 
       :isOpen="isBookingOpen"
       :preselectedServiceId="preselectedService"
@@ -123,7 +144,15 @@ onMounted(async () => {
       @toast="showToast"
     />
 
-    <!-- 4. Portal del Paciente (Mis Citas, Historial, Cancelaciones, Reprogramaciones y Notificaciones) -->
+    <!-- 4. Modal de Inicio de Sesión con Google (Para acceder al historial) -->
+    <PatientAuthModal
+      :isOpen="isAuthModalOpen"
+      @close="isAuthModalOpen = false"
+      @loginSuccess="handleLoginSuccess"
+      @toast="showToast"
+    />
+
+    <!-- 5. Ventana Emergente de Historial de Citas del Paciente (Aparece SOLO tras iniciar cuenta) -->
     <PatientPortal 
       :isOpen="isPatientPortalOpen"
       @close="isPatientPortalOpen = false"
@@ -131,7 +160,7 @@ onMounted(async () => {
       @toast="showToast"
     />
 
-    <!-- 5. Modal de Completar Perfil de Paciente (Teléfono y Políticas) -->
+    <!-- 6. Modal de Completar Perfil de Paciente (Teléfono y Políticas) -->
     <PatientProfileModal 
       :isOpen="isProfileModalOpen"
       @close="isProfileModalOpen = false"
@@ -139,7 +168,7 @@ onMounted(async () => {
       @toast="showToast"
     />
 
-    <!-- 6. Modal del Portal Médico Privado (Doctor Lisandro Márquez / Secretaría) -->
+    <!-- 7. Modal del Portal Médico Privado (Doctor Lisandro Márquez / Secretaría) -->
     <DoctorPortal 
       :isOpen="isPortalOpen"
       @close="isPortalOpen = false"
@@ -148,10 +177,10 @@ onMounted(async () => {
       @toast="showToast"
     />
 
-    <!-- 7. Botón Flotante de WhatsApp Oficial (0424-1851027) -->
+    <!-- 8. Botón Flotante de WhatsApp Oficial (0424-1851027) -->
     <WhatsAppButton />
 
-    <!-- 8. Sistema de Alertas Toast Flotantes -->
+    <!-- 9. Sistema de Alertas Toast Flotantes -->
     <div class="fixed bottom-5 left-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
       <div v-for="t in toasts" 
            :key="t.id"

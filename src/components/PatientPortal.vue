@@ -238,6 +238,10 @@ const handleLogout = () => {
 
 watch(() => props.isOpen, (open) => {
   if (open) {
+    if (!isAuthenticated.value) {
+      emit('close');
+      return;
+    }
     loadPatientAppointments();
     loadNotifications();
     if (currentUser.value) {
@@ -249,7 +253,7 @@ watch(() => props.isOpen, (open) => {
 </script>
 
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+  <div v-if="isOpen && isAuthenticated" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
     <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col animate-pop-in">
       
       <!-- Top Header Institucional -->

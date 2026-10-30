@@ -1,6 +1,6 @@
 <script setup>
 import doctorData from '../data/doctor.json';
-import { currentUser, isAuthenticated, isPatient, logout } from '../services/auth';
+import { currentUser, isAuthenticated } from '../services/auth';
 
 defineProps({
   isDoctorLogged: {
@@ -13,7 +13,7 @@ defineProps({
   }
 });
 
-defineEmits(['openBooking', 'openPortal', 'openPatientPortal']);
+defineEmits(['openBooking', 'openPortal', 'openPatientPortal', 'openLogin']);
 </script>
 
 <template>
@@ -26,7 +26,6 @@ defineEmits(['openBooking', 'openPortal', 'openPatientPortal']);
         class="flex items-center gap-3.5 group cursor-pointer flex-shrink-0"
         title="Volver al Inicio"
       >
-        <!-- Icono Médico -->
         <div class="w-11 h-11 rounded-xl bg-[#0EA5E9] text-white flex items-center justify-center shadow-md shadow-sky-500/25 group-hover:scale-105 transition-transform flex-shrink-0">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px; color: #ffffff;">
             <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
@@ -45,37 +44,38 @@ defineEmits(['openBooking', 'openPortal', 'openPatientPortal']);
         </div>
       </router-link>
 
-      <!-- Lado Derecho: Acceso Paciente con Google + Contacto + CTAs -->
+      <!-- Lado Derecho: Acceso Paciente + Contacto + CTAs -->
       <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
         
-        <!-- Acceso Portal del Paciente / Mis Citas -->
+        <!-- ESTADO 1: Paciente CON sesión iniciada -> Muestra botón oficial de "Mis Citas / Historial" -->
         <div v-if="isAuthenticated" class="flex items-center gap-2">
           <button 
             type="button"
             @click="$emit('openPatientPortal')"
-            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200/90 text-xs font-bold transition shadow-2xs cursor-pointer"
-            title="Abrir Mi Portal del Paciente"
+            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-300 text-xs font-bold transition shadow-xs cursor-pointer"
+            title="Abrir Mi Historial de Citas"
           >
             <img 
-              v-if="currentUser?.foto_perfil" 
-              :src="currentUser.foto_perfil" 
+              v-if="currentUser?.foto_url" 
+              :src="currentUser.foto_url" 
               alt="Avatar" 
               class="w-5 h-5 rounded-full object-cover border border-sky-300"
             />
             <span v-else class="w-5 h-5 rounded-full bg-sky-600 text-white text-[10px] flex items-center justify-center font-black">
               {{ currentUser?.nombre?.charAt(0) || 'P' }}
             </span>
-            <span class="max-w-[100px] sm:max-w-[140px] truncate">{{ currentUser?.nombre?.split(' ')[0] || 'Mi Perfil' }}</span>
-            <span class="hidden md:inline text-[10px] text-sky-600 font-extrabold bg-sky-200/60 px-1.5 py-0.5 rounded-md">Mis Citas</span>
+            <span class="max-w-[110px] sm:max-w-[140px] truncate">{{ currentUser?.nombre?.split(' ')[0] || 'Mi Cuenta' }}</span>
+            <span class="text-[10px] text-sky-700 font-extrabold bg-sky-200/70 px-1.5 py-0.5 rounded-md">Mis Citas</span>
           </button>
         </div>
 
+        <!-- ESTADO 2: Paciente SIN sesión iniciada -> Muestra "Iniciar Sesión" (NUNCA abre el historial antes de iniciar cuenta) -->
         <button 
           v-else
           type="button"
-          @click="$emit('openPatientPortal')"
-          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-sky-50 hover:text-sky-700 border border-slate-200 hover:border-sky-200 transition cursor-pointer"
-          title="Ingresar a Mis Citas con Google"
+          @click="$emit('openLogin')"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-sky-50 hover:text-sky-700 border border-slate-200 hover:border-sky-300 transition cursor-pointer"
+          title="Iniciar sesión con Google para ver citas"
         >
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -83,7 +83,8 @@ defineEmits(['openBooking', 'openPortal', 'openPatientPortal']);
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
           </svg>
-          <span>Mis Citas</span>
+          <span class="hidden sm:inline">Iniciar Sesión</span>
+          <span class="sm:hidden">Acceso</span>
         </button>
 
         <!-- Instagram Estilizado -->
@@ -116,9 +117,9 @@ defineEmits(['openBooking', 'openPortal', 'openPatientPortal']);
                 class="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-[#0EA5E9] hover:bg-[#0284C7] shadow-md shadow-sky-500/25 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px; color: #ffffff;">
             <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-            <line x1="16" x2="16" y1="2" y2="6"/>
-            <line x1="8" x2="8" y1="2" y2="6"/>
-            <line x1="3" x2="21" y1="10" y2="10"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
           <span>Agendar Cita</span>
         </button>
