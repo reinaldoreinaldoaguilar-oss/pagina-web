@@ -254,9 +254,8 @@ const citasTodayCount = computed(() => {
 const isAuthenticated = computed(() => !!token.value);
 
 const fetchWithAuth = async (url, options = {}) => {
-  // 1. Si no hay token o es demo_token, auto-autenticar con Render primero
   if (!token.value || token.value === 'demo_token') {
-    await handleLogin(true);
+    return new Response(JSON.stringify({ error: 'No autenticado' }), { status: 401 });
   }
 
   const reqHeaders = {
@@ -273,14 +272,10 @@ const fetchWithAuth = async (url, options = {}) => {
     throw err;
   }
 
-  // 2. Si el token expiró o fue rechazado con 401 Unauthorized, auto-renovar contra Render y reintentar
   if (res.status === 401) {
-    console.warn(`401 Unauthorized en ${url}. Auto-renovando token médico contra Render...`);
-    const refreshed = await handleLogin(true);
-    if (refreshed && token.value && token.value !== 'demo_token') {
-      reqHeaders['Authorization'] = `Bearer ${token.value}`;
-      res = await fetch(url, { ...options, headers: reqHeaders });
-    }
+    console.warn(`401 Unauthorized en ${url}.`);
+    token.value = '';
+    localStorage.removeItem('dr_lisandro_jwt_token');
   }
 
   return res;
@@ -288,9 +283,7 @@ const fetchWithAuth = async (url, options = {}) => {
 
 watch(() => props.isOpen, async (open) => {
   if (open) {
-    if (!token.value || token.value === 'demo_token') {
-      await handleLogin(true);
-    } else {
+    if (token.value && token.value !== 'demo_token') {
       await loadDashboardData();
     }
   }
@@ -333,7 +326,7 @@ const handleLogin = async (silent = false) => {
   } catch (error) {
     console.warn('Error al autenticar contra /api/login:', error);
     if (!silent) {
-      emit('toast', { msg: 'Conectando con el servidor médico en Render...', type: 'warning' });
+      emit('toast', { msg: 'No se pudo conectar con el servidor. Intente nuevamente.', type: 'danger' });
     }
     return false;
   } finally {
@@ -632,10 +625,8 @@ const isSyncing = ref(false);
 const handleSync = async () => {
   isSyncing.value = true;
   try {
-    // Re-autenticar silenciosamente para garantizar token fresco de Render
-    await handleLogin(true);
     await loadDashboardData();
-    emit('toast', { msg: `✓ Sincronizado con Render: ${citas.value.length} citas y ${pacientes.value.length} pacientes activos`, type: 'success' });
+    emit('toast', { msg: `✓ Sincronizado: ${citas.value.length} citas y ${pacientes.value.length} pacientes activos`, type: 'success' });
   } catch (e) {
     emit('toast', { msg: 'Error al sincronizar datos con el servidor', type: 'danger' });
   } finally {
@@ -884,7 +875,7 @@ const downloadAssistantPDF = () => {
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span>{{ loading ? 'Conectando con base de datos...' : 'Ingresar al Portal Médico (Dr. Lisandro)' }}</span>
+            <span>{{ loading ? 'Iniciando sesión...' : 'Ingresar al Portal Médico (Dr. Lisandro)' }}</span>
           </button>
         </form>
       </div>
