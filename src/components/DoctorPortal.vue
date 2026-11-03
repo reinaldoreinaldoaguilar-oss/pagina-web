@@ -146,6 +146,115 @@ const stats = ref({
 const activeFilter = ref('todos');
 const searchQuery = ref('');
 
+// Filtros avanzados para la Agenda de Citas (Sedes y Fechas)
+const selectedSedeFilter = ref('todas'); // 'todas' | 1 | 2 | 3
+const selectedDateQuickFilter = ref('todas'); // 'todas' | 'hoy' | 'semana' | 'proximas' | 'custom'
+const customDateFilter = ref('');
+
+// Modal de Ficha Médica y Notas Clínicas Privadas de la Consulta
+const showClinicalNoteModal = ref(false);
+const activeCitaForNote = ref(null);
+const doctorNoteEdit = ref('');
+const savingClinicalNote = ref(false);
+
+const openClinicalNote = (cita) => {
+  activeCitaForNote.value = cita;
+  doctorNoteEdit.value = cita.notas_doctor || '';
+  showClinicalNoteModal.value = true;
+};
+
+const saveClinicalNote = async () => {
+  if (!activeCitaForNote.value) return;
+  savingClinicalNote.value = true;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/citas/${activeCitaForNote.value.id}/notas`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token.value}`
+      },
+      body: JSON.stringify({
+        notas_doctor: doctorNoteEdit.value.trim()
+      })
+    });
+
+    if (res.ok) {
+      activeCitaForNote.value.notas_doctor = doctorNoteEdit.value.trim();
+      const inList = citas.value.find(c => c.id === activeCitaForNote.value.id);
+      if (inList) inList.notas_doctor = doctorNoteEdit.value.trim();
+      emit('toast', { msg: '✓ Notas médicas y diagnóstico guardados en el expediente', type: 'success' });
+      showClinicalNoteModal.value = false;
+    } else {
+      emit('toast', { msg: 'No se pudieron guardar las notas médicas', type: 'danger' });
+    }
+  } catch (e) {
+    emit('toast', { msg: 'Error de conexión al guardar nota médica', type: 'danger' });
+  } finally {
+    savingClinicalNote.value = false;
+  }
+};
+
+// Modal de Expediente Integral del Paciente
+const showPatientRecordModal = ref(false);
+const loadingPatientRecord = ref(false);
+const patientRecordData = ref(null);
+
+const openPatientRecordModal = async (paciente) => {
+  showPatientRecordModal.value = true;
+  loadingPatientRecord.value = true;
+  patientRecordData.value = null;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/pacientes/${paciente.id}/expediente`, {
+      headers: {
+        'Authorization': `Bearer ${token.value}`
+      }
+    });
+
+    if (res.ok) {
+      patientRecordData.value = await res.json();
+    } else {
+      // Fallback local con las citas ya cargadas en memoria
+      const pacienteCitas = citas.value.filter(c => 
+        (c.correo && paciente.correo && c.correo.toLowerCase() === paciente.correo.toLowerCase()) ||
+        (c.paciente && paciente.nombre && c.paciente.toLowerCase() === paciente.nombre.toLowerCase())
+      );
+      patientRecordData.value = {
+        paciente: {
+          id: paciente.id,
+          tipo: paciente.tipo || 'web',
+          nombre: paciente.nombre,
+          correo: paciente.correo,
+          telefono: paciente.telefono,
+          foto_url: paciente.foto_url
+        },
+        estadisticas: {
+          total: pacienteCitas.length,
+          completadas: pacienteCitas.filter(c => (c.estado || '').toLowerCase() === 'completada').length,
+          confirmadas: pacienteCitas.filter(c => (c.estado || '').toLowerCase() === 'confirmada').length,
+          pendientes: pacienteCitas.filter(c => (c.estado || '').toLowerCase() === 'pendiente').length,
+          inasistencias: pacienteCitas.filter(c => (c.estado || '').toLowerCase().includes('no_asistio')).length,
+          canceladas: pacienteCitas.filter(c => (c.estado || '').toLowerCase().includes('cancelada')).length
+        },
+        historial: pacienteCitas
+      };
+    }
+  } catch (e) {
+    console.warn('Error al cargar expediente:', e);
+  } finally {
+    loadingPatientRecord.value = false;
+  }
+};
+
+const citasTodayCount = computed(() => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${y}-${m}-${d}`;
+  return citas.value.filter(c => (c.fecha || (c.fecha_hora ? c.fecha_hora.split(' ')[0] : '')) === todayStr).length;
+});
+
 const isAuthenticated = computed(() => !!token.value);
 
 watch(() => props.isOpen, (open) => {
@@ -387,15 +496,57 @@ const loadMockData = () => {
 
 const filteredCitas = computed(() => {
   let list = citas.value;
+
+  // 1. Filtro por Estado Clínico
   if (activeFilter.value !== 'todos') {
     list = list.filter(c => (c.estado || '').toLowerCase() === activeFilter.value.toLowerCase());
   }
+
+  // 2. Filtro por Sede Médica
+  if (selectedSedeFilter.value !== 'todas') {
+    list = list.filter(c => c.sede_id === selectedSedeFilter.value);
+  }
+
+  // 3. Filtro por Fecha Rápida
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${y}-${m}-${d}`;
+
+  if (selectedDateQuickFilter.value === 'hoy') {
+    list = list.filter(c => (c.fecha || (c.fecha_hora ? c.fecha_hora.split(' ')[0] : '')) === todayStr);
+  } else if (selectedDateQuickFilter.value === 'proximas') {
+    list = list.filter(c => (c.fecha || (c.fecha_hora ? c.fecha_hora.split(' ')[0] : '')) >= todayStr);
+  } else if (selectedDateQuickFilter.value === 'semana') {
+    const currentDayOfWeek = now.getDay();
+    const diffToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    const monStr = fmt(monday);
+    const sunStr = fmt(sunday);
+
+    list = list.filter(c => {
+      const f = c.fecha || (c.fecha_hora ? c.fecha_hora.split(' ')[0] : '');
+      return f >= monStr && f <= sunStr;
+    });
+  } else if (selectedDateQuickFilter.value === 'custom' && customDateFilter.value) {
+    list = list.filter(c => (c.fecha || (c.fecha_hora ? c.fecha_hora.split(' ')[0] : '')) === customDateFilter.value);
+  }
+
+  // 4. Búsqueda Textual
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase();
     list = list.filter(c =>
       (c.paciente && c.paciente.toLowerCase().includes(q)) ||
       (c.telefono && c.telefono.toLowerCase().includes(q)) ||
+      (c.correo && c.correo.toLowerCase().includes(q)) ||
       (c.servicio && c.servicio.toLowerCase().includes(q)) ||
+      (c.codigo_cita && c.codigo_cita.toLowerCase().includes(q)) ||
       (c.codigo && c.codigo.toLowerCase().includes(q))
     );
   }
@@ -871,33 +1022,120 @@ const downloadAssistantPDF = () => {
         </div>
 
         <!-- Filtros y Búsqueda -->
-        <div v-if="activeTab !== 'bloqueos'" class="flex flex-wrap justify-between items-center gap-3">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            :placeholder="activeTab === 'citas' ? 'Buscar cita por paciente, teléfono o comprobante...' : 'Buscar paciente por nombre, teléfono o correo...'" 
-            class="p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm flex-1 min-w-[260px] focus:ring-2 focus:ring-sky-500 focus:outline-hidden" 
-          />
+        <div v-if="activeTab !== 'bloqueos'" class="space-y-3">
+          <div class="flex flex-wrap justify-between items-center gap-3">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              :placeholder="activeTab === 'citas' ? 'Buscar cita por paciente, teléfono o comprobante...' : 'Buscar paciente por nombre, teléfono o correo...'" 
+              class="p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm flex-1 min-w-[260px] focus:ring-2 focus:ring-sky-500 focus:outline-hidden bg-white shadow-2xs" 
+            />
 
-          <!-- Filtros de estado para citas -->
-          <div v-if="activeTab === 'citas'" class="flex gap-1.5 flex-wrap">
-            <button 
-              v-for="st in [
-                { id: 'todos', label: 'Todas' },
-                { id: 'pendiente', label: 'Pendiente' },
-                { id: 'confirmada', label: 'Confirmada' },
-                { id: 'presente', label: 'Presente' },
-                { id: 'completada', label: 'Completada' },
-                { id: 'no_asistio', label: 'Inasistencia' }
-              ]" 
-              :key="st.id" 
-              type="button"
-              @click="activeFilter = st.id"
-              class="px-3 py-1 rounded-full text-[11px] font-bold transition border cursor-pointer"
-              :class="activeFilter === st.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'"
-            >
-              {{ st.label }}
-            </button>
+            <!-- Filtros de estado para citas -->
+            <div v-if="activeTab === 'citas'" class="flex gap-1.5 flex-wrap">
+              <button 
+                v-for="st in [
+                  { id: 'todos', label: 'Todas' },
+                  { id: 'pendiente', label: 'Pendiente' },
+                  { id: 'confirmada', label: 'Confirmada' },
+                  { id: 'presente', label: 'Presente' },
+                  { id: 'completada', label: 'Completada' },
+                  { id: 'no_asistio', label: 'Inasistencia' }
+                ]" 
+                :key="st.id" 
+                type="button"
+                @click="activeFilter = st.id"
+                class="px-3 py-1 rounded-full text-[11px] font-bold transition border cursor-pointer"
+                :class="activeFilter === st.id ? 'bg-slate-900 text-white border-slate-900 shadow-2xs' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'"
+              >
+                {{ st.label }}
+              </button>
+            </div>
+          </div>
+
+          <!-- FILTROS AVANZADOS POR SEDE Y FECHA RÁPIDA (SOLO PARA AGENDA DE CITAS) -->
+          <div v-if="activeTab === 'citas'" class="p-3 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-2 text-xs">
+            <!-- Filtro por Sede Médica -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-[11px] font-extrabold text-slate-700 flex items-center gap-1 min-w-[65px]">
+                <span>🏥 Sede:</span>
+              </span>
+              <button 
+                type="button" 
+                @click="selectedSedeFilter = 'todas'"
+                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer"
+                :class="selectedSedeFilter === 'todas' ? 'bg-sky-700 text-white border-sky-700 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
+              >
+                Todas las Sedes ({{ citas.length }})
+              </button>
+              <button 
+                v-for="s in sedes" 
+                :key="s.id"
+                type="button" 
+                @click="selectedSedeFilter = s.id"
+                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-1"
+                :class="selectedSedeFilter === s.id ? 'bg-sky-700 text-white border-sky-700 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
+              >
+                <span>📍 {{ s.nombre.split('—')[0].trim() }}</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="selectedSedeFilter === s.id ? 'bg-sky-800 text-sky-100' : 'bg-slate-100 text-slate-600'">
+                  {{ citas.filter(c => c.sede_id === s.id).length }}
+                </span>
+              </button>
+            </div>
+
+            <!-- Filtro por Fecha Rápida -->
+            <div class="flex items-center gap-2 flex-wrap pt-2 border-t border-slate-200/70">
+              <span class="text-[11px] font-extrabold text-slate-700 flex items-center gap-1 min-w-[65px]">
+                <span>📅 Fecha:</span>
+              </span>
+              <button 
+                type="button" 
+                @click="selectedDateQuickFilter = 'todas'; customDateFilter = ''"
+                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer"
+                :class="selectedDateQuickFilter === 'todas' ? 'bg-slate-800 text-white border-slate-800 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
+              >
+                Historial Completo
+              </button>
+              <button 
+                type="button" 
+                @click="selectedDateQuickFilter = 'hoy'; customDateFilter = ''"
+                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-1"
+                :class="selectedDateQuickFilter === 'hoy' ? 'bg-amber-600 text-white border-amber-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
+              >
+                <span>⚡ Citas de Hoy</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="selectedDateQuickFilter === 'hoy' ? 'bg-white text-amber-900' : 'bg-amber-100 text-amber-900 font-extrabold'">
+                  {{ citasTodayCount }}
+                </span>
+              </button>
+              <button 
+                type="button" 
+                @click="selectedDateQuickFilter = 'semana'; customDateFilter = ''"
+                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer"
+                :class="selectedDateQuickFilter === 'semana' ? 'bg-slate-800 text-white border-slate-800 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
+              >
+                🗓️ Esta Semana
+              </button>
+              <button 
+                type="button" 
+                @click="selectedDateQuickFilter = 'proximas'; customDateFilter = ''"
+                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer"
+                :class="selectedDateQuickFilter === 'proximas' ? 'bg-slate-800 text-white border-slate-800 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
+              >
+                ⏭️ Próximas
+              </button>
+              <div class="flex items-center gap-1">
+                <input 
+                  type="date" 
+                  v-model="customDateFilter" 
+                  @change="selectedDateQuickFilter = 'custom'"
+                  class="p-1 rounded-lg border border-slate-300 text-xs bg-white font-mono cursor-pointer"
+                  title="Elegir fecha específica para ver la agenda"
+                />
+              </div>
+              <span v-if="filteredCitas.length !== citas.length" class="text-[11px] font-semibold text-sky-800 ml-auto">
+                Mostrando <strong>{{ filteredCitas.length }}</strong> de <strong>{{ citas.length }}</strong> citas
+              </span>
+            </div>
           </div>
         </div>
 
@@ -952,6 +1190,17 @@ const downloadAssistantPDF = () => {
                 </td>
                 <td class="p-3 text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1.5">
+                    <button 
+                      type="button" 
+                      @click="openClinicalNote(c)" 
+                      class="px-2.5 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      :class="c.notas_doctor ? 'bg-indigo-100 text-indigo-900 hover:bg-indigo-600 hover:text-white border border-indigo-200' : 'bg-slate-100 text-slate-700 hover:bg-sky-600 hover:text-white border border-slate-200'"
+                      :title="c.notas_doctor ? 'Ver o editar notas médicas de esta cita' : 'Añadir notas clínicas / diagnóstico a esta cita'"
+                    >
+                      <span>📝</span>
+                      <span>{{ c.notas_doctor ? 'Ficha / Notas' : '+ Ficha' }}</span>
+                      <span v-if="c.notas_doctor" class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                    </button>
                     <a :href="getWhatsAppPatientLink(c)" target="_blank" class="px-2.5 py-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-600 hover:text-white rounded-lg font-bold text-[11px] transition flex items-center gap-1.5" title="Chatear por WhatsApp">
                       <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                         <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
@@ -1407,6 +1656,15 @@ const downloadAssistantPDF = () => {
                 </td>
                 <td class="p-3 text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1.5">
+                    <button 
+                      type="button" 
+                      @click="openPatientRecordModal(p)" 
+                      class="px-2.5 py-1 bg-purple-100 hover:bg-purple-700 text-purple-900 hover:text-white rounded-lg font-bold text-[11px] transition cursor-pointer flex items-center gap-1.5 shadow-2xs border border-purple-200"
+                      title="Ver expediente clínico integral y consultas de este paciente"
+                    >
+                      <span>📂</span>
+                      <span>Expediente</span>
+                    </button>
                     <a 
                       :href="getWhatsAppPatientDirectLink(p)" 
                       target="_blank" 
@@ -1453,6 +1711,327 @@ const downloadAssistantPDF = () => {
           </div>
         </div>
 
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 1: FICHA MÉDICA Y NOTAS CLÍNICAS PRIVADAS DEL DOCTOR -->
+  <div v-if="showClinicalNoteModal && activeCitaForNote" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl animate-pop-in space-y-4 max-h-[92vh] overflow-y-auto border border-slate-100">
+      
+      <!-- Encabezado del Modal -->
+      <div class="flex justify-between items-center border-b border-slate-200 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-base shadow-2xs">
+            📋
+          </div>
+          <div>
+            <h4 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+              Ficha Médica de Consulta: #{{ activeCitaForNote.codigo || activeCitaForNote.id }}
+            </h4>
+            <p class="text-[11px] text-slate-500 font-medium">
+              Registro clínico confidencial • Dr. Lisandro Márquez
+            </p>
+          </div>
+        </div>
+        <button 
+          type="button" 
+          @click="showClinicalNoteModal = false" 
+          class="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-xl transition cursor-pointer"
+        >
+          &times;
+        </button>
+      </div>
+
+      <!-- Resumen del Paciente y Cita -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Datos del Paciente</span>
+          <strong class="text-sm text-slate-900 block">{{ activeCitaForNote.paciente }}</strong>
+          <span class="text-slate-600 block font-mono text-[11px]">{{ activeCitaForNote.correo || 'Sin correo registrado' }}</span>
+          <div class="flex items-center gap-2 pt-1">
+            <span class="font-mono text-slate-700 font-semibold">{{ activeCitaForNote.telefono || 'Sin teléfono' }}</span>
+            <a 
+              v-if="activeCitaForNote.telefono" 
+              :href="getWhatsAppPatientLink(activeCitaForNote)" 
+              target="_blank" 
+              class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold hover:bg-emerald-600 hover:text-white transition"
+            >
+              WhatsApp
+            </a>
+          </div>
+        </div>
+
+        <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Detalles de la Consulta</span>
+          <strong class="text-xs text-sky-900 block">{{ activeCitaForNote.servicio }}</strong>
+          <div class="text-slate-700 text-[11px] font-medium">
+            <span>📍 {{ activeCitaForNote.sede }}</span>
+          </div>
+          <div class="text-slate-700 text-[11px] font-mono font-bold">
+            <span>🗓️ {{ activeCitaForNote.fecha_hora }}</span>
+          </div>
+          <div class="flex items-center gap-2 pt-0.5">
+            <span class="text-[10px] text-slate-500">Estado:</span>
+            <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full"
+              :class="{
+                'bg-amber-100 text-amber-900': (activeCitaForNote.estado || '').toLowerCase() === 'pendiente',
+                'bg-emerald-100 text-emerald-900': (activeCitaForNote.estado || '').toLowerCase() === 'confirmada',
+                'bg-indigo-100 text-indigo-900': (activeCitaForNote.estado || '').toLowerCase() === 'presente',
+                'bg-sky-100 text-sky-900': (activeCitaForNote.estado || '').toLowerCase() === 'completada',
+                'bg-rose-100 text-rose-900': (activeCitaForNote.estado || '').toLowerCase().includes('no_asistio')
+              }"
+            >
+              {{ activeCitaForNote.estado }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Motivo o Síntomas reportados por el paciente -->
+      <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-1">
+        <span class="font-extrabold text-amber-950 flex items-center gap-1 text-[11px]">
+          <span>💬</span>
+          <span>Motivo de Consulta o Síntomas Reportados por el Paciente:</span>
+        </span>
+        <p class="text-amber-900 font-medium italic">
+          {{ activeCitaForNote.sintomas || 'El paciente no ingresó síntomas previos al agendar.' }}
+        </p>
+      </div>
+
+      <!-- Área de Notas Médicas y Diagnóstico del Doctor -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-extrabold text-slate-800 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <span>🩺</span>
+            <span>Notas Clínicas, Diagnóstico y Conducta Médica (Uso Privado):</span>
+          </span>
+          <span class="text-[10px] text-indigo-600 font-semibold font-mono">Confidencial</span>
+        </label>
+        <textarea
+          v-model="doctorNoteEdit"
+          rows="5"
+          placeholder="Escriba aquí los hallazgos del examen físico, ecografía (renal, vesical, prostática), diagnóstico, tratamiento prescrito o indicaciones para el paciente..."
+          class="w-full p-3 rounded-2xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-white shadow-2xs font-sans leading-relaxed"
+        ></textarea>
+        <span class="text-[10px] text-slate-400 block">
+          💡 Estas notas quedan registradas en el historial del paciente y solo pueden ser consultadas por el Dr. Lisandro Márquez.
+        </span>
+      </div>
+
+      <!-- Cambio de Estado Rápido -->
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between flex-wrap gap-2 text-xs">
+        <span class="font-bold text-slate-700">Cambiar estado de la consulta:</span>
+        <div class="flex gap-1.5 flex-wrap">
+          <button
+            v-for="st in [
+              { id: 'confirmada', label: 'Confirmada', color: 'bg-emerald-600' },
+              { id: 'presente', label: 'En Espera', color: 'bg-indigo-600' },
+              { id: 'completada', label: 'Completada', color: 'bg-sky-600' },
+              { id: 'no_asistio', label: 'Inasistencia', color: 'bg-rose-600' }
+            ]"
+            :key="st.id"
+            type="button"
+            @click="changeStatus(activeCitaForNote.id, st.id); activeCitaForNote.estado = st.id"
+            class="px-2.5 py-1 rounded-lg text-white text-[11px] font-bold cursor-pointer transition shadow-2xs"
+            :class="[st.color, (activeCitaForNote.estado || '').toLowerCase() === st.id ? 'ring-2 ring-slate-900 scale-105' : 'opacity-85 hover:opacity-100']"
+          >
+            {{ st.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+        <button
+          type="button"
+          @click="showClinicalNoteModal = false"
+          class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
+        >
+          Cerrar
+        </button>
+        <button
+          type="button"
+          @click="saveClinicalNote"
+          :disabled="savingClinicalNote"
+          class="px-5 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold rounded-xl text-xs transition shadow-md disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+        >
+          <span>💾</span>
+          <span>{{ savingClinicalNote ? 'Guardando notas...' : 'Guardar Notas Médicas' }}</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 2: EXPEDIENTE INTEGRAL DEL PACIENTE -->
+  <div v-if="showPatientRecordModal" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl animate-pop-in space-y-4 max-h-[92vh] overflow-y-auto border border-slate-100">
+      
+      <!-- Encabezado del Modal -->
+      <div class="flex justify-between items-center border-b border-slate-200 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-lg shadow-2xs">
+            📂
+          </div>
+          <div>
+            <h4 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+              Expediente Clínico del Paciente
+            </h4>
+            <p class="text-[11px] text-slate-500 font-medium">
+              Historial médico longitudinal y registro de consultas • Dr. Lisandro Márquez
+            </p>
+          </div>
+        </div>
+        <button 
+          type="button" 
+          @click="showPatientRecordModal = false" 
+          class="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-xl transition cursor-pointer"
+        >
+          &times;
+        </button>
+      </div>
+
+      <!-- Estado de Carga -->
+      <div v-if="loadingPatientRecord" class="py-12 text-center text-xs text-purple-700 animate-pulse font-semibold">
+        Cargando expediente e historial del paciente...
+      </div>
+
+      <div v-else-if="patientRecordData" class="space-y-4">
+        
+        <!-- Tarjeta de Identidad del Paciente -->
+        <div class="p-4 bg-purple-50/70 border border-purple-200 rounded-2xl flex items-center justify-between flex-wrap gap-3">
+          <div class="flex items-center gap-3">
+            <img 
+              v-if="patientRecordData.paciente.foto_url" 
+              :src="patientRecordData.paciente.foto_url" 
+              alt="Avatar" 
+              class="w-12 h-12 rounded-full object-cover border-2 border-purple-300 shadow-xs" 
+            />
+            <div v-else class="w-12 h-12 rounded-full bg-purple-600 text-white font-extrabold text-base flex items-center justify-center shadow-xs">
+              {{ (patientRecordData.paciente.nombre || 'P')[0] }}
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h5 class="text-sm sm:text-base font-black text-slate-900">{{ patientRecordData.paciente.nombre }}</h5>
+                <span v-if="patientRecordData.paciente.tipo === 'google'" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-sky-100 text-sky-800">Google ID</span>
+                <span v-else class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-200 text-slate-700">Web</span>
+              </div>
+              <span class="text-xs text-slate-600 font-mono block">{{ patientRecordData.paciente.correo || 'Sin correo' }}</span>
+              <span class="text-xs text-purple-900 font-mono font-bold block">{{ patientRecordData.paciente.telefono || 'Sin teléfono' }}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <a 
+              v-if="patientRecordData.paciente.telefono" 
+              :href="getWhatsAppPatientDirectLink(patientRecordData.paciente)" 
+              target="_blank" 
+              class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <span>💬</span>
+              <span>Chatear por WhatsApp</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- KPIs de Asistencia Médica -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <span class="text-xl font-extrabold text-slate-900 block">{{ patientRecordData.estadisticas.total }}</span>
+            <span class="text-[10px] font-bold text-slate-500 uppercase">Total Citas</span>
+          </div>
+          <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <span class="text-xl font-extrabold text-emerald-800 block">{{ patientRecordData.estadisticas.completadas }}</span>
+            <span class="text-[10px] font-bold text-emerald-600 uppercase">Atendidas</span>
+          </div>
+          <div class="p-3 bg-sky-50 border border-sky-200 rounded-xl">
+            <span class="text-xl font-extrabold text-sky-800 block">{{ patientRecordData.estadisticas.confirmadas + patientRecordData.estadisticas.pendientes }}</span>
+            <span class="text-[10px] font-bold text-sky-600 uppercase">Activas</span>
+          </div>
+          <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+            <span class="text-xl font-extrabold text-rose-800 block">{{ patientRecordData.estadisticas.inasistencias }}</span>
+            <span class="text-[10px] font-bold text-rose-600 uppercase">Inasistencias</span>
+          </div>
+        </div>
+
+        <!-- Historial Cronológico de Consultas -->
+        <div class="space-y-2.5">
+          <h6 class="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+            <span>🗓️</span>
+            <span>Historial de Consultas Médicas ({{ patientRecordData.historial.length }})</span>
+          </h6>
+
+          <div v-if="!patientRecordData.historial.length" class="p-6 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
+            Este paciente aún no registra consultas médicas completadas.
+          </div>
+
+          <div v-else class="space-y-3">
+            <div 
+              v-for="h in patientRecordData.historial" 
+              :key="h.id"
+              class="p-4 bg-white border border-slate-200 rounded-2xl space-y-2 hover:shadow-xs transition"
+            >
+              <div class="flex items-start justify-between flex-wrap gap-2">
+                <div>
+                  <strong class="text-xs sm:text-sm text-slate-900 block font-bold">{{ h.servicio }}</strong>
+                  <span class="text-[11px] text-slate-500 block font-medium">📍 {{ h.sede }}</span>
+                  <span class="text-[11px] text-slate-700 block font-mono font-bold">🗓️ {{ h.fecha_hora }}</span>
+                </div>
+                <span 
+                  class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase"
+                  :class="{
+                    'bg-amber-100 text-amber-900': (h.estado || '').toLowerCase() === 'pendiente',
+                    'bg-emerald-100 text-emerald-900': (h.estado || '').toLowerCase() === 'confirmada',
+                    'bg-indigo-100 text-indigo-900': (h.estado || '').toLowerCase() === 'presente',
+                    'bg-sky-100 text-sky-900': (h.estado || '').toLowerCase() === 'completada',
+                    'bg-rose-100 text-rose-900': (h.estado || '').toLowerCase().includes('no_asistio')
+                  }"
+                >
+                  {{ h.estado }}
+                </span>
+              </div>
+
+              <!-- Síntomas -->
+              <div v-if="h.sintomas" class="text-xs bg-slate-50 p-2.5 rounded-xl text-slate-700">
+                <span class="font-bold text-slate-800">Motivo reportado:</span> {{ h.sintomas }}
+              </div>
+
+              <!-- Notas Médicas Registradas -->
+              <div class="text-xs p-3 rounded-xl border" :class="h.notas_doctor ? 'bg-indigo-50/70 border-indigo-200 text-indigo-950' : 'bg-slate-50 border-slate-200 text-slate-500 italic'">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-bold text-[11px] flex items-center gap-1" :class="h.notas_doctor ? 'text-indigo-900' : 'text-slate-500'">
+                    <span>🩺</span>
+                    <span>Notas Médicas del Dr. Lisandro Márquez:</span>
+                  </span>
+                  <button 
+                    type="button" 
+                    @click="showPatientRecordModal = false; openClinicalNote(h)" 
+                    class="text-[10px] text-indigo-700 hover:text-indigo-950 font-bold underline cursor-pointer"
+                  >
+                    {{ h.notas_doctor ? 'Editar Notas' : '+ Agregar Nota' }}
+                  </button>
+                </div>
+                <p class="font-sans leading-relaxed whitespace-pre-wrap">
+                  {{ h.notas_doctor || 'Sin notas registradas para esta consulta.' }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pie del Modal -->
+      <div class="flex justify-end pt-2 border-t border-slate-200">
+        <button
+          type="button"
+          @click="showPatientRecordModal = false"
+          class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
+        >
+          Cerrar Expediente
+        </button>
       </div>
 
     </div>
