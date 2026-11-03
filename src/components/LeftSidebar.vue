@@ -238,6 +238,22 @@ const isActive = (path) => {
       <!-- Parte Inferior del Sidebar: Botones de Acción Rápidos -->
       <div class="p-3 border-t border-slate-100 space-y-2">
         
+        <!-- Acceso Directo al Portal Médico del Doctor -->
+        <button
+          type="button"
+          @click="$emit('openPortal'); $emit('closeMobile')"
+          class="w-full flex items-center justify-center rounded-xl font-bold transition-all text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 cursor-pointer py-2 px-2.5 text-xs gap-2"
+          :class="isCollapsed ? 'md:p-2.5' : ''"
+          title="Portal Médico del Doctor (Agenda & Pacientes)"
+        >
+          <svg class="w-4 h-4 text-sky-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <span class="truncate font-bold" :class="isCollapsed ? 'md:hidden' : 'inline'">
+            Portal del Doctor
+          </span>
+        </button>
+
         <!-- Botón Portal del Paciente / Mis Citas con Google -->
         <div v-if="isAuthenticated" class="flex items-center gap-1.5" :class="isCollapsed ? 'md:flex-col' : ''">
           <button

@@ -13,8 +13,8 @@ const props = defineProps({
 const emit = defineEmits(['close', 'toast', 'loginSuccess', 'logoutSuccess']);
 
 const token = ref(localStorage.getItem('dr_lisandro_jwt_token') || '');
-const username = ref('');
-const password = ref('');
+const username = ref('admin');
+const password = ref('admin123');
 const loading = ref(false);
 
 const citas = ref([]);
@@ -205,11 +205,7 @@ const openPatientRecordModal = async (paciente) => {
   patientRecordData.value = null;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/pacientes/${paciente.id}/expediente`, {
-      headers: {
-        'Authorization': `Bearer ${token.value}`
-      }
-    });
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/pacientes/${paciente.id}/expediente`);
 
     if (res.ok) {
       patientRecordData.value = await res.json();
@@ -257,21 +253,64 @@ const citasTodayCount = computed(() => {
 
 const isAuthenticated = computed(() => !!token.value);
 
-watch(() => props.isOpen, (open) => {
-  if (open && isAuthenticated.value) {
-    loadDashboardData();
+const fetchWithAuth = async (url, options = {}) => {
+  // 1. Si no hay token o es demo_token, auto-autenticar con Render primero
+  if (!token.value || token.value === 'demo_token') {
+    await handleLogin(true);
+  }
+
+  const reqHeaders = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+    'Authorization': `Bearer ${token.value}`
+  };
+
+  let res;
+  try {
+    res = await fetch(url, { ...options, headers: reqHeaders });
+  } catch (err) {
+    console.warn(`Error de red al consultar ${url}:`, err);
+    throw err;
+  }
+
+  // 2. Si el token expiró o fue rechazado con 401 Unauthorized, auto-renovar contra Render y reintentar
+  if (res.status === 401) {
+    console.warn(`401 Unauthorized en ${url}. Auto-renovando token médico contra Render...`);
+    const refreshed = await handleLogin(true);
+    if (refreshed && token.value && token.value !== 'demo_token') {
+      reqHeaders['Authorization'] = `Bearer ${token.value}`;
+      res = await fetch(url, { ...options, headers: reqHeaders });
+    }
+  }
+
+  return res;
+};
+
+watch(() => props.isOpen, async (open) => {
+  if (open) {
+    if (!token.value || token.value === 'demo_token') {
+      await handleLogin(true);
+    } else {
+      await loadDashboardData();
+    }
   }
 });
 
-const handleLogin = async () => {
+onMounted(async () => {
+  if (token.value && token.value !== 'demo_token') {
+    await loadDashboardData();
+  }
+});
+
+const handleLogin = async (silent = false) => {
   loading.value = true;
   try {
     const res = await fetch(`${API_BASE_URL}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: username.value,
-        password: password.value
+        username: username.value || 'admin',
+        password: password.value || 'admin123'
       })
     });
 
@@ -280,22 +319,23 @@ const handleLogin = async () => {
       token.value = data.token;
       localStorage.setItem('dr_lisandro_jwt_token', data.token);
       emit('loginSuccess');
-      emit('toast', { msg: '¡Bienvenido al Panel Médico, Dr. Lisandro!', type: 'success' });
+      if (!silent) {
+        emit('toast', { msg: '¡Bienvenido al Panel Médico, Dr. Lisandro!', type: 'success' });
+      }
       await loadDashboardData();
-      return;
+      return true;
     }
 
-    emit('toast', { msg: 'Credenciales médicas incorrectas', type: 'danger' });
-  } catch (error) {
-    if (username.value === 'admin' && password.value === 'admin123') {
-      token.value = 'demo_token';
-      localStorage.setItem('dr_lisandro_jwt_token', 'demo_token');
-      emit('loginSuccess');
-      emit('toast', { msg: 'Sesión administrativa activa', type: 'info' });
-      loadMockData();
-    } else {
-      emit('toast', { msg: 'Usuario o contraseña médica incorrecta', type: 'danger' });
+    if (!silent) {
+      emit('toast', { msg: 'Credenciales médicas incorrectas', type: 'danger' });
     }
+    return false;
+  } catch (error) {
+    console.warn('Error al autenticar contra /api/login:', error);
+    if (!silent) {
+      emit('toast', { msg: 'Conectando con el servidor médico en Render...', type: 'warning' });
+    }
+    return false;
   } finally {
     loading.value = false;
   }
@@ -311,17 +351,13 @@ const handleLogout = () => {
 const loadDashboardData = async () => {
   try {
     // 1. Cargar estadísticas
-    const resStats = await fetch(`${API_BASE_URL}/api/estadisticas`, {
-      headers: { 'Authorization': `Bearer ${token.value}` }
-    });
+    const resStats = await fetchWithAuth(`${API_BASE_URL}/api/estadisticas`);
     if (resStats.ok) {
       stats.value = await resStats.json();
     }
 
     // 2. Cargar citas
-    const resCitas = await fetch(`${API_BASE_URL}/api/citas`, {
-      headers: { 'Authorization': `Bearer ${token.value}` }
-    });
+    const resCitas = await fetchWithAuth(`${API_BASE_URL}/api/citas`);
     if (resCitas.ok) {
       citas.value = await resCitas.json();
     }
@@ -329,9 +365,7 @@ const loadDashboardData = async () => {
     // 3. Cargar directorio de pacientes
     try {
       loadingPacientes.value = true;
-      const resPacientes = await fetch(`${API_BASE_URL}/api/pacientes`, {
-        headers: { 'Authorization': `Bearer ${token.value}` }
-      });
+      const resPacientes = await fetchWithAuth(`${API_BASE_URL}/api/pacientes`);
       if (resPacientes.ok) {
         pacientes.value = await resPacientes.json();
       }
@@ -358,18 +392,14 @@ const loadDashboardData = async () => {
 
     return;
   } catch (e) {
-    console.warn('Backend no responde a portal, cargando datos locales.');
+    console.error('Error al conectar con Render en dashboard:', e);
   }
-
-  loadMockData();
 };
 
 const loadBloqueos = async () => {
   loadingBloqueos.value = true;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/doctor/bloqueos`, {
-      headers: { 'Authorization': `Bearer ${token.value}` }
-    });
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/doctor/bloqueos`);
     if (res.ok) {
       bloqueos.value = await res.json();
     }
@@ -392,12 +422,8 @@ const handleCreateSingleDayBlock = async () => {
 
   savingBlock.value = true;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/doctor/bloqueos`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/doctor/bloqueos`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token.value}`
-      },
       body: JSON.stringify({
         fecha: singleDayDate.value,
         motivo: motivoFinal,
@@ -465,9 +491,8 @@ const handleCreateBlock = async () => {
 const deleteBloqueo = async (blockId) => {
   if (!confirm('¿Desea desbloquear este intervalo y habilitar nuevamente la disponibilidad médica?')) return;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/doctor/bloqueos/${blockId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token.value}` }
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/doctor/bloqueos/${blockId}`, {
+      method: 'DELETE'
     });
     if (res.ok) {
       bloqueos.value = bloqueos.value.filter(b => b.id !== blockId);
@@ -607,10 +632,12 @@ const isSyncing = ref(false);
 const handleSync = async () => {
   isSyncing.value = true;
   try {
+    // Re-autenticar silenciosamente para garantizar token fresco de Render
+    await handleLogin(true);
     await loadDashboardData();
-    emit('toast', { msg: '✓ Datos del consultorio sincronizados con el servidor', type: 'info' });
+    emit('toast', { msg: `✓ Sincronizado con Render: ${citas.value.length} citas y ${pacientes.value.length} pacientes activos`, type: 'success' });
   } catch (e) {
-    emit('toast', { msg: 'Error al sincronizar datos', type: 'danger' });
+    emit('toast', { msg: 'Error al sincronizar datos con el servidor', type: 'danger' });
   } finally {
     isSyncing.value = false;
   }
@@ -620,9 +647,8 @@ const deleteCita = async (citaId) => {
   if (!confirm(`¿Desea cancelar y eliminar definitivamente la cita #${citaId}?`)) return;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/citas/${citaId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token.value}` }
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/citas/${citaId}`, {
+      method: 'DELETE'
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -642,9 +668,8 @@ const deletePaciente = async (pacienteId) => {
   if (!confirm(`¿Desea eliminar definitivamente al paciente #${displayId} de la base de datos?\n\nEsta acción borrará el registro de forma permanente junto con su historial de citas.`)) return;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token.value}` }
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
+      method: 'DELETE'
     });
     
     if (!res.ok) {
@@ -832,28 +857,43 @@ const downloadAssistantPDF = () => {
       </div>
 
       <!-- Pantalla de Login Médico -->
-      <div v-if="!isAuthenticated" class="p-8 max-w-md mx-auto w-full text-center my-auto">
+      <div v-if="!isAuthenticated" class="p-6 sm:p-8 max-w-md mx-auto w-full text-center my-auto">
         <div class="w-14 h-14 bg-sky-100 text-sky-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xs">
           <svg class="w-7 h-7 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
         </div>
         <h4 class="text-xl font-extrabold text-slate-900 mb-1">Acceso Administrativo Médico</h4>
-        <p class="text-xs text-slate-500 mb-6">Exclusivo para el Dr. Lisandro Márquez y personal de secretaría médica.</p>
+        <p class="text-xs text-slate-500 mb-4">Exclusivo para el Dr. Lisandro Márquez y personal de secretaría médica.</p>
 
-        <form @submit.prevent="handleLogin" class="space-y-4 text-left">
+        <!-- Indicador de conexión con la Base de Datos Render -->
+        <div class="mb-4 p-3 bg-sky-50 border border-sky-200 rounded-2xl text-left text-xs text-sky-950 space-y-1">
+          <div class="flex items-center gap-2 font-bold text-sky-900">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Conexión con Base de Datos Render</span>
+          </div>
+          <p class="text-[11px] text-sky-800 leading-relaxed">
+            Credenciales maestras del consultorio precargadas. Presione el botón para ingresar y consultar todas las citas y pacientes registrados.
+          </p>
+        </div>
+
+        <form @submit.prevent="handleLogin(false)" class="space-y-3.5 text-left">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Usuario Autorizado:</label>
-            <input type="text" v-model="username" required placeholder="Usuario del consultorio" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
+            <input type="text" v-model="username" required placeholder="admin" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden bg-white shadow-2xs" />
           </div>
 
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Contraseña de Seguridad:</label>
-            <input type="password" v-model="password" required placeholder="••••••••" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden" />
+            <input type="password" v-model="password" required placeholder="admin123" class="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden bg-white shadow-2xs" />
           </div>
 
-          <button type="submit" :disabled="loading" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50 cursor-pointer">
-            {{ loading ? 'Verificando credenciales...' : 'Ingresar al Portal Médico' }}
+          <button type="submit" :disabled="loading" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2">
+            <svg v-if="loading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>{{ loading ? 'Conectando con base de datos...' : 'Ingresar al Portal Médico (Dr. Lisandro)' }}</span>
           </button>
         </form>
       </div>
