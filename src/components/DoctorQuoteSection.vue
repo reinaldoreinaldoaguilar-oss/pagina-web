@@ -76,14 +76,7 @@ defineEmits(['openBooking']);
                 <span>¡Agenda tu Consulta Hoy!</span>
               </button>
 
-              <a 
-                :href="`https://wa.me/${doctorData.whatsapp}?text=Hola%20Dr.%20Lisandro%20M%C3%A1rquez,%20le%C3%AD%20su%20mensaje%20sobre%20la%20prevenci%C3%B3n%20y%20deseo%20agendar%20una%20consulta.`" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-bold text-xs sm:text-sm text-slate-700 bg-white hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 shadow-xs transition-all cursor-pointer">
-                <span>💬</span>
-                <span>WhatsApp: {{ doctorData.telefono_display }}</span>
-              </a>
+
             </div>
 
           </div>

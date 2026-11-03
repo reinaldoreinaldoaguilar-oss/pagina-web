@@ -866,16 +866,7 @@ const downloadAssistantPDF = () => {
         <h4 class="text-xl font-extrabold text-slate-900 mb-1">Acceso Administrativo Médico</h4>
         <p class="text-xs text-slate-500 mb-4">Exclusivo para el Dr. Lisandro Márquez y personal de secretaría médica.</p>
 
-        <!-- Indicador de conexión con la Base de Datos Render -->
-        <div class="mb-4 p-3 bg-sky-50 border border-sky-200 rounded-2xl text-left text-xs text-sky-950 space-y-1">
-          <div class="flex items-center gap-2 font-bold text-sky-900">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Conexión con Base de Datos Render</span>
-          </div>
-          <p class="text-[11px] text-sky-800 leading-relaxed">
-            Credenciales maestras del consultorio precargadas. Presione el botón para ingresar y consultar todas las citas y pacientes registrados.
-          </p>
-        </div>
+
 
         <form @submit.prevent="handleLogin(false)" class="space-y-3.5 text-left">
           <div>

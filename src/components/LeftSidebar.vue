@@ -113,9 +113,32 @@ const isActive = (path) => {
       ]"
     >
       <!-- Encabezado del Menú Lateral -->
-      <div>
-        <div class="h-16 sm:h-20 flex items-center border-b border-slate-100 transition-all px-4 justify-between"
-             :class="isCollapsed ? 'md:justify-center' : 'justify-between'">
+      <div class="relative">
+        <!-- Botón de Plegar/Desplegar en escritorio (anclado perfectamente en el borde sin desbordar el logo) -->
+        <button
+          type="button"
+          @click="$emit('toggleCollapse')"
+          class="hidden md:flex absolute -right-3.5 top-6 z-30 w-7 h-7 rounded-full bg-white hover:bg-sky-50 text-slate-500 hover:text-sky-600 border border-slate-200 shadow-md items-center justify-center transition-transform hover:scale-110 cursor-pointer"
+          :title="isCollapsed ? 'Expandir barra lateral' : 'Plegar barra lateral'"
+        >
+          <svg 
+            width="14" 
+            height="14" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            stroke-width="2.5" 
+            stroke-linecap="round" 
+            stroke-linejoin="round"
+            class="transition-transform duration-300"
+            :class="isCollapsed ? 'rotate-180' : 'rotate-0'"
+          >
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+
+        <div class="h-16 sm:h-20 flex items-center border-b border-slate-100 transition-all px-4"
+             :class="isCollapsed ? 'justify-center' : 'justify-between'">
           
           <!-- Branding -->
           <router-link to="/" @click="$emit('closeMobile')" class="flex items-center gap-3 overflow-hidden group">
@@ -124,49 +147,21 @@ const isActive = (path) => {
                 <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
               </svg>
             </div>
-            <div class="flex flex-col min-w-0" :class="isCollapsed ? 'md:hidden' : 'flex'">
+            <div class="flex flex-col min-w-0" :class="isCollapsed ? 'hidden' : 'flex'">
               <span class="text-sm font-extrabold text-slate-900 leading-tight truncate">Dr. L. Márquez</span>
               <span class="text-[10px] font-bold text-sky-600 uppercase tracking-wide">Urólogo</span>
             </div>
           </router-link>
 
-          <!-- Botón de Cerrar en móvil / Toggle en escritorio -->
-          <div class="flex items-center gap-1">
-            <!-- Botón Cerrar en móvil (md:hidden) -->
-            <button
-              type="button"
-              @click="$emit('closeMobile')"
-              class="md:hidden w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all cursor-pointer text-xl font-bold"
-              title="Cerrar menú"
-            >
-              &times;
-            </button>
-
-            <!-- Botón Minimalista de Plegar/Desplegar en escritorio -->
-            <button
-              type="button"
-              @click="$emit('toggleCollapse')"
-              class="hidden md:flex w-8 h-8 rounded-lg bg-slate-100 hover:bg-sky-50 hover:text-sky-600 text-slate-500 items-center justify-center transition-all cursor-pointer shadow-2xs"
-              :title="isCollapsed ? 'Expandir barra lateral' : 'Plegar barra lateral'"
-            >
-              <!-- Flecha de toggle animada -->
-              <svg 
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                stroke-width="2.5" 
-                stroke-linecap="round" 
-                stroke-linejoin="round"
-                class="transition-transform duration-300"
-                :class="isCollapsed ? 'rotate-180' : 'rotate-0'"
-                style="width: 16px; height: 16px;"
-              >
-                <polyline points="15 18 9 12 15 6"></polyline>
-              </svg>
-            </button>
-          </div>
+          <!-- Botón Cerrar en móvil (md:hidden) -->
+          <button
+            type="button"
+            @click="$emit('closeMobile')"
+            class="md:hidden w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all cursor-pointer text-xl font-bold ml-auto"
+            title="Cerrar menú"
+          >
+            &times;
+          </button>
 
         </div>
 
@@ -238,22 +233,6 @@ const isActive = (path) => {
       <!-- Parte Inferior del Sidebar: Botones de Acción Rápidos -->
       <div class="p-3 border-t border-slate-100 space-y-2">
         
-        <!-- Acceso Directo al Portal Médico del Doctor -->
-        <button
-          type="button"
-          @click="$emit('openPortal'); $emit('closeMobile')"
-          class="w-full flex items-center justify-center rounded-xl font-bold transition-all text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 cursor-pointer py-2 px-2.5 text-xs gap-2"
-          :class="isCollapsed ? 'md:p-2.5' : ''"
-          title="Portal Médico del Doctor (Agenda & Pacientes)"
-        >
-          <svg class="w-4 h-4 text-sky-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          <span class="truncate font-bold" :class="isCollapsed ? 'md:hidden' : 'inline'">
-            Portal del Doctor
-          </span>
-        </button>
-
         <!-- Botón Portal del Paciente / Mis Citas con Google -->
         <div v-if="isAuthenticated" class="flex items-center gap-1.5" :class="isCollapsed ? 'md:flex-col' : ''">
           <button
