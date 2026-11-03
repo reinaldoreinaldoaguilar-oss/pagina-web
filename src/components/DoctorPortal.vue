@@ -804,27 +804,27 @@ const downloadAssistantPDF = () => {
 </script>
 
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+  <div v-if="isOpen" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
     <div class="bg-white rounded-3xl max-w-5xl w-full max-h-[94vh] overflow-hidden shadow-2xl flex flex-col animate-pop-in border border-slate-100">
       
       <!-- Top Header -->
-      <div class="px-6 py-4 bg-slate-950 text-white flex justify-between items-center border-b border-slate-800">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-xs">
+      <div class="px-3.5 sm:px-6 py-3 sm:py-4 bg-slate-950 text-white flex justify-between items-center border-b border-slate-800">
+        <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-xs shrink-0">
             <svg class="w-5 h-5 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <div>
-            <h3 class="text-sm sm:text-base font-extrabold block leading-tight">{{ doctorData.nombre }}</h3>
-            <span class="text-[11px] text-sky-400 block font-semibold">Portal Médico Privado • Agenda & Disponibilidad</span>
+          <div class="min-w-0">
+            <h3 class="text-xs sm:text-base font-extrabold block leading-tight truncate max-w-[200px] xs:max-w-[260px] sm:max-w-none">{{ doctorData.nombre }}</h3>
+            <span class="text-[10px] sm:text-[11px] text-sky-400 block font-semibold truncate max-w-[220px] xs:max-w-[280px] sm:max-w-none">Portal Médico Privado • Agenda & Disponibilidad</span>
           </div>
         </div>
 
         <button 
           type="button" 
           @click="$emit('close')" 
-          class="w-8 h-8 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center text-xl transition cursor-pointer"
+          class="w-8 h-8 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center text-xl transition cursor-pointer shrink-0 ml-2"
           title="Cerrar"
         >
           &times;
@@ -859,10 +859,10 @@ const downloadAssistantPDF = () => {
       </div>
 
       <!-- Dashboard Principal del Doctor -->
-      <div v-else class="p-6 overflow-y-auto space-y-6">
+      <div v-else class="p-3 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
         
         <!-- Top Bar Actions -->
-        <div class="flex justify-between items-center pb-4 border-b border-slate-200 flex-wrap gap-3">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3.5 sm:pb-4 border-b border-slate-200 gap-2.5 sm:gap-3">
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
@@ -901,7 +901,7 @@ const downloadAssistantPDF = () => {
         </div>
 
         <!-- Indicadores / KPIs -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
           <div 
             @click="activeTab = 'citas'; activeFilter = 'todos'"
             class="bg-sky-50/80 border p-4 rounded-2xl cursor-pointer hover:shadow-xs transition"
@@ -1686,8 +1686,8 @@ const downloadAssistantPDF = () => {
   </div>
 
   <!-- MODAL 1: FICHA MÉDICA Y NOTAS CLÍNICAS PRIVADAS DEL DOCTOR -->
-  <div v-if="showClinicalNoteModal && activeCitaForNote" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
-    <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl animate-pop-in space-y-5 max-h-[92vh] overflow-y-auto border border-slate-100">
+  <div v-if="showClinicalNoteModal && activeCitaForNote" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-6">
+    <div class="bg-white rounded-3xl max-w-4xl w-full p-4 sm:p-8 shadow-2xl animate-pop-in space-y-4 sm:space-y-5 max-h-[94vh] overflow-y-auto border border-slate-100">
       
       <!-- Encabezado del Modal -->
       <div class="flex justify-between items-center border-b border-slate-200 pb-4">
@@ -1853,8 +1853,8 @@ const downloadAssistantPDF = () => {
   </div>
 
   <!-- MODAL 2: EXPEDIENTE INTEGRAL DEL PACIENTE -->
-  <div v-if="showPatientRecordModal" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
-    <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl animate-pop-in space-y-5 max-h-[92vh] overflow-y-auto border border-slate-100">
+  <div v-if="showPatientRecordModal" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-6">
+    <div class="bg-white rounded-3xl max-w-4xl w-full p-4 sm:p-8 shadow-2xl animate-pop-in space-y-4 sm:space-y-5 max-h-[94vh] overflow-y-auto border border-slate-100">
       
       <!-- Encabezado del Modal -->
       <div class="flex justify-between items-center border-b border-slate-200 pb-4">

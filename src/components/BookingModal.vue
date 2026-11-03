@@ -531,11 +531,11 @@ const downloadCalendar = () => {
 </script>
 
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+  <div v-if="isOpen" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
     <div class="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col border border-slate-100 animate-pop-in">
       
       <!-- Encabezado del Modal -->
-      <div class="px-6 py-4 bg-slate-50/90 border-b border-slate-200/80 flex justify-between items-center">
+      <div class="px-3.5 sm:px-6 py-3 sm:py-4 bg-slate-50/90 border-b border-slate-200/80 flex justify-between items-center">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-xs">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -566,7 +566,7 @@ const downloadCalendar = () => {
       </div>
 
       <!-- Cuerpo del Modal -->
-      <div class="p-5 sm:p-6 overflow-y-auto">
+      <div class="p-3.5 sm:p-6 overflow-y-auto">
         
         <!-- PANTALLA DE ÉXITO -->
         <div v-if="confirmedData" class="text-center py-2 animate-fade-in">
@@ -1170,11 +1170,11 @@ const downloadCalendar = () => {
                 </p>
               </div>
 
-              <div class="flex justify-between pt-2">
+              <div class="flex flex-col-reverse sm:flex-row justify-between gap-2.5 pt-2">
                 <button 
                   type="button" 
                   @click="prevStep" 
-                  class="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+                  class="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer text-center"
                 >
                   ← Volver
                 </button>
@@ -1182,7 +1182,7 @@ const downloadCalendar = () => {
                   type="button" 
                   @click="submitBooking" 
                   :disabled="loading" 
-                  class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-75 cursor-pointer flex items-center gap-2"
+                  class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition disabled:opacity-75 cursor-pointer flex items-center justify-center gap-2"
                 >
                   <svg v-if="loading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

@@ -413,34 +413,48 @@ watch(() => props.isOpen, (open) => {
 </script>
 
 <template>
-  <div v-if="isOpen && isAuthenticated" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+  <div v-if="isOpen && isAuthenticated" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
     <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col animate-pop-in">
       
-      <!-- Top Header Institucional -->
-      <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-sky-600 text-white flex items-center justify-center overflow-hidden border-2 border-sky-400/40">
-            <img v-if="currentUser?.foto_url" :src="currentUser.foto_url" alt="Foto Google" class="w-full h-full object-cover" />
-            <span v-else class="text-sm font-bold">{{ (currentUser?.nombre || 'P')[0] }}</span>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h3 class="text-sm sm:text-base font-bold">{{ currentUser?.nombre }}</h3>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30">
-                Paciente
-              </span>
+      <!-- Top Header Institucional Responsivo -->
+      <div class="px-3.5 sm:px-6 py-3 sm:py-4 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <!-- Fila 1: Avatar + Datos del Paciente + Botón Cerrar (en móvil queda arriba a la derecha) -->
+        <div class="flex items-center justify-between w-full sm:w-auto gap-3">
+          <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-sky-600 text-white flex items-center justify-center overflow-hidden border-2 border-sky-400/40 shrink-0">
+              <img v-if="currentUser?.foto_url" :src="currentUser.foto_url" alt="Foto Google" class="w-full h-full object-cover" />
+              <span v-else class="text-sm font-bold">{{ (currentUser?.nombre || 'P')[0] }}</span>
             </div>
-            <span class="text-[11px] text-slate-300 block font-mono">{{ currentUser?.correo }}</span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 sm:gap-2">
+                <h3 class="text-xs sm:text-base font-bold truncate max-w-[150px] xs:max-w-[200px] sm:max-w-none">{{ currentUser?.nombre }}</h3>
+                <span class="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30 shrink-0">
+                  Paciente
+                </span>
+              </div>
+              <span class="text-[10px] sm:text-[11px] text-slate-300 block font-mono truncate max-w-[170px] xs:max-w-[220px] sm:max-w-none">{{ currentUser?.correo }}</span>
+            </div>
           </div>
+
+          <!-- Botón de Cerrar Modal (visible solo en móvil aquí arriba a la derecha) -->
+          <button 
+            type="button" 
+            @click="$emit('close')" 
+            class="sm:hidden text-slate-400 hover:text-white text-2xl leading-none p-1 shrink-0 cursor-pointer"
+            aria-label="Cerrar modal"
+          >
+            &times;
+          </button>
         </div>
 
-        <div class="flex items-center gap-2">
+        <!-- Fila 2: Botones de Acción (Nueva Cita, Cerrar Sesión y Cerrar en desktop) -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             @click="$emit('openBooking')"
-            class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+            class="flex-1 sm:flex-none justify-center px-3 sm:px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
             <span>Nueva Cita</span>
@@ -449,27 +463,34 @@ watch(() => props.isOpen, (open) => {
           <button
             type="button"
             @click="handleLogout"
-            class="px-3 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition border border-slate-700 cursor-pointer"
+            class="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition border border-slate-700 cursor-pointer shrink-0"
           >
             Cerrar Sesión
           </button>
 
-          <button type="button" @click="$emit('close')" class="text-slate-400 hover:text-white text-2xl leading-none ml-2">
+          <!-- Botón Cerrar en Desktop -->
+          <button 
+            type="button" 
+            @click="$emit('close')" 
+            class="hidden sm:block text-slate-400 hover:text-white text-2xl leading-none ml-2 cursor-pointer"
+            aria-label="Cerrar modal"
+          >
             &times;
           </button>
         </div>
       </div>
 
       <!-- Barra de Navegación de Pestañas -->
-      <div class="flex items-center gap-2 px-6 pt-3 border-b border-slate-200 bg-slate-50/50 overflow-x-auto">
+      <div class="flex items-center gap-1 sm:gap-2 px-3 sm:px-6 pt-2 sm:pt-3 border-b border-slate-200 bg-slate-50/50 overflow-x-auto no-scrollbar scroll-smooth">
         <button
           type="button"
           @click="activeTab = 'proximas'"
-          class="flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap cursor-pointer"
-          :class="activeTab === 'proximas' ? 'border-sky-600 text-sky-700 bg-white rounded-t-lg' : 'border-transparent text-slate-600 hover:text-slate-900'"
+          class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap cursor-pointer shrink-0"
+          :class="activeTab === 'proximas' ? 'border-sky-600 text-sky-700 bg-white rounded-t-lg shadow-2xs' : 'border-transparent text-slate-600 hover:text-slate-900'"
         >
-          <span>Próximas Citas</span>
-          <span class="px-2 py-0.2 rounded-full text-[10px] font-black" :class="activeTab === 'proximas' ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-700'">
+          <span class="hidden sm:inline">Próximas Citas</span>
+          <span class="sm:hidden">Próximas</span>
+          <span class="px-1.5 sm:px-2 py-0.2 rounded-full text-[10px] font-black" :class="activeTab === 'proximas' ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-700'">
             {{ proximasCitas.length }}
           </span>
         </button>
@@ -477,11 +498,12 @@ watch(() => props.isOpen, (open) => {
         <button
           type="button"
           @click="activeTab = 'historial'"
-          class="flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap cursor-pointer"
+          class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap cursor-pointer shrink-0"
           :class="activeTab === 'historial' ? 'border-sky-600 text-sky-700 bg-white rounded-t-lg' : 'border-transparent text-slate-600 hover:text-slate-900'"
         >
-          <span>Historial de Citas</span>
-          <span class="px-2 py-0.2 rounded-full text-[10px] font-black" :class="activeTab === 'historial' ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-700'">
+          <span class="hidden sm:inline">Historial de Citas</span>
+          <span class="sm:hidden">Historial</span>
+          <span class="px-1.5 sm:px-2 py-0.2 rounded-full text-[10px] font-black" :class="activeTab === 'historial' ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-700'">
             {{ historialCitas.length }}
           </span>
         </button>
@@ -489,11 +511,12 @@ watch(() => props.isOpen, (open) => {
         <button
           type="button"
           @click="activeTab = 'notificaciones'"
-          class="flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap cursor-pointer"
+          class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap cursor-pointer shrink-0"
           :class="activeTab === 'notificaciones' ? 'border-sky-600 text-sky-700 bg-white rounded-t-lg' : 'border-transparent text-slate-600 hover:text-slate-900'"
         >
-          <span>Notificaciones</span>
-          <span v-if="unreadNotifsCount" class="px-2 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+          <span class="hidden sm:inline">Notificaciones</span>
+          <span class="sm:hidden">Avisos</span>
+          <span v-if="unreadNotifsCount" class="px-1.5 sm:px-2 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
             {{ unreadNotifsCount }}
           </span>
         </button>
@@ -501,15 +524,16 @@ watch(() => props.isOpen, (open) => {
         <button
           type="button"
           @click="activeTab = 'perfil'"
-          class="flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap cursor-pointer"
+          class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap cursor-pointer shrink-0"
           :class="activeTab === 'perfil' ? 'border-sky-600 text-sky-700 bg-white rounded-t-lg' : 'border-transparent text-slate-600 hover:text-slate-900'"
         >
-          <span>Mi Perfil de Contacto</span>
+          <span class="hidden sm:inline">Mi Perfil de Contacto</span>
+          <span class="sm:hidden">Mi Perfil</span>
         </button>
       </div>
 
       <!-- Contenedor Principal de Contenido -->
-      <div class="p-6 overflow-y-auto space-y-6">
+      <div class="p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
 
         <!-- 1. PESTAÑA: PRÓXIMAS CITAS -->
         <div v-if="activeTab === 'proximas'" class="space-y-5">
@@ -742,8 +766,8 @@ watch(() => props.isOpen, (open) => {
   </div>
 
   <!-- MODAL DE CANCELACIÓN DE CITA -->
-  <div v-if="showCancelModal" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-pop-in space-y-4">
+  <div v-if="showCancelModal" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl animate-pop-in space-y-4">
       <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -793,8 +817,8 @@ watch(() => props.isOpen, (open) => {
   </div>
 
   <!-- MODAL DE REPROGRAMACIÓN ATÓMICA DE CITA -->
-  <div v-if="showRescheduleModal && appointmentToReschedule" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl animate-pop-in space-y-4 max-h-[92vh] overflow-y-auto border border-slate-100">
+  <div v-if="showRescheduleModal && appointmentToReschedule" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-3.5 sm:p-6 shadow-2xl animate-pop-in space-y-4 max-h-[92vh] overflow-y-auto border border-slate-100">
       
       <!-- Encabezado del Modal -->
       <div class="flex justify-between items-center border-b border-slate-200 pb-3">
