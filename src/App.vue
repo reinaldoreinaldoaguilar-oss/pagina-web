@@ -14,13 +14,16 @@ import WhatsAppButton from './components/WhatsAppButton.vue';
 import { API_BASE_URL } from './config/api';
 import { fetchCurrentUser, currentUser, isAuthenticated } from './services/auth';
 
-// Estado de Colapso de la Barra Lateral Izquierda (con persistencia)
+// Estado de Colapso de la Barra Lateral Izquierda (en Escritorio)
 const isSidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === 'true');
 
 const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value;
   localStorage.setItem('sidebar_collapsed', isSidebarCollapsed.value ? 'true' : 'false');
 };
+
+// Estado del Cajón de Navegación Móvil (Responsive Drawer)
+const isMobileSidebarOpen = ref(false);
 
 // Estados reactivos globales
 const isBookingOpen = ref(false);
@@ -49,7 +52,6 @@ const openBookingWithService = (serviceId = null) => {
 };
 
 // Flujo de Acceso al Historial de Citas:
-// La ventana emergente del historial de citas SOLO debe aparecer cuando se inicie la cuenta, NO antes.
 const handleOpenPatientHistory = () => {
   if (isAuthenticated.value) {
     isPatientPortalOpen.value = true;
@@ -60,13 +62,11 @@ const handleOpenPatientHistory = () => {
 
 const handleLoginSuccess = () => {
   isAuthModalOpen.value = false;
-  // Al iniciar cuenta satisfactoriamente, se abre de inmediato la ventana emergente de historial de citas
   isPatientPortalOpen.value = true;
 };
 
 // Inicialización de sesión y conectividad
 onMounted(async () => {
-  // 1. Restaurar sesión activa de paciente si existe token en localStorage
   try {
     const user = await fetchCurrentUser();
     if (user && user.needs_profile_completion) {
@@ -76,7 +76,6 @@ onMounted(async () => {
     console.debug('Sin sesión activa previa de paciente');
   }
 
-  // 2. Verificar estado de la API en Render
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
@@ -90,45 +89,47 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-sky-500 selection:text-white flex relative">
+  <div class="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-sky-500 selection:text-white flex relative overflow-x-hidden">
     
-    <!-- 1. BARRA LATERAL IZQUIERDA -->
+    <!-- 1. BARRA LATERAL IZQUIERDA (Responsiva: Drawer en Móvil, Docked en Escritorio) -->
     <LeftSidebar 
       :isCollapsed="isSidebarCollapsed"
       :isDoctorLogged="isDoctorLogged"
+      :isMobileOpen="isMobileSidebarOpen"
       @toggleCollapse="toggleSidebar"
-      @openBooking="openBookingWithService(null)"
-      @openPortal="isPortalOpen = true"
-      @openPatientPortal="handleOpenPatientHistory"
-      @openLogin="isAuthModalOpen = true"
+      @closeMobile="isMobileSidebarOpen = false"
+      @openBooking="openBookingWithService(null); isMobileSidebarOpen = false"
+      @openPortal="isPortalOpen = true; isMobileSidebarOpen = false"
+      @openPatientPortal="handleOpenPatientHistory(); isMobileSidebarOpen = false"
+      @openLogin="isAuthModalOpen = true; isMobileSidebarOpen = false"
       @toast="showToast"
     />
 
-    <!-- 2. CONTENEDOR DEL CONTENIDO PRINCIPAL CON MARGEN DINÁMICO -->
+    <!-- 2. CONTENEDOR DEL CONTENIDO PRINCIPAL (ml-0 en móvil, margen adaptativo en escritorio md+) -->
     <div 
-      class="flex-1 flex flex-col justify-between min-h-screen transition-all duration-300 ease-in-out min-w-0 w-full"
-      :class="isSidebarCollapsed ? 'ml-20' : 'ml-64'"
-      :style="{ marginLeft: isSidebarCollapsed ? '5rem' : '16rem' }"
+      class="flex-1 flex flex-col justify-between min-h-screen transition-all duration-300 ease-in-out min-w-0 w-full ml-0"
+      :class="isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'"
     >
       <!-- Cabecera Superior (Navbar) -->
       <Navbar 
         :isDoctorLogged="isDoctorLogged"
         :backendOnline="backendOnline"
+        @toggleMobileSidebar="isMobileSidebarOpen = !isMobileSidebarOpen"
         @openBooking="openBookingWithService(null)"
         @openPortal="isPortalOpen = true"
         @openPatientPortal="handleOpenPatientHistory"
         @openLogin="isAuthModalOpen = true"
-      @toast="showToast"
+        @toast="showToast"
       />
 
       <!-- Vistas Multi-página Renderizadas por vue-router -->
-      <main class="flex-1 w-full">
+      <main class="flex-1 w-full overflow-x-hidden">
         <router-view 
           @openBooking="openBookingWithService(null)"
           @selectServiceToBook="openBookingWithService"
           @openPatientPortal="handleOpenPatientHistory"
           @openLogin="isAuthModalOpen = true"
-      @toast="showToast"
+          @toast="showToast"
         />
       </main>
 
@@ -184,7 +185,7 @@ onMounted(async () => {
     <WhatsAppButton />
 
     <!-- 9. Sistema de Alertas Toast Flotantes -->
-    <div class="fixed bottom-5 left-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+    <div class="fixed bottom-5 left-3 sm:left-5 right-3 sm:right-auto z-50 flex flex-col gap-2 max-w-sm w-auto sm:w-full pointer-events-none">
       <div v-for="t in toasts" 
            :key="t.id"
            class="pointer-events-auto p-3.5 rounded-2xl text-xs font-semibold shadow-xl border flex items-center justify-between gap-3 animate-fade-in"

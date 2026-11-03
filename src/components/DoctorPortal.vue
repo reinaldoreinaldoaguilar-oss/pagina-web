@@ -943,7 +943,7 @@ const downloadAssistantPDF = () => {
         </div>
 
         <!-- Pestañas de Navegación del Panel -->
-        <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <div class="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto no-scrollbar">
           <button
             type="button"
             @click="activeTab = 'citas'"
@@ -1116,7 +1116,7 @@ const downloadAssistantPDF = () => {
 
         <!-- 1. PESTAÑA: AGENDA DE CITAS -->
         <div v-if="activeTab === 'citas'" class="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="w-full text-left text-xs border-collapse min-w-[720px]">
             <thead>
               <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
                 <th class="p-3">Comprobante</th>
@@ -1515,7 +1515,7 @@ const downloadAssistantPDF = () => {
             </div>
 
             <div class="overflow-x-auto">
-              <table class="w-full text-left text-xs border-collapse">
+              <table class="w-full text-left text-xs border-collapse min-w-[720px]">
                 <thead>
                   <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
                     <th class="p-3.5"># ID</th>
@@ -1582,7 +1582,7 @@ const downloadAssistantPDF = () => {
 
         <!-- 3. PESTAÑA: DIRECTORIO DE PACIENTES -->
         <div v-else class="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="w-full text-left text-xs border-collapse min-w-[720px]">
             <thead>
               <tr class="bg-purple-50/70 border-b border-purple-200 text-purple-950 font-bold">
                 <th class="p-3"># ID</th>
