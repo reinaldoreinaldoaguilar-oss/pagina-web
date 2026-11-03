@@ -31,6 +31,7 @@ const selectedTime = ref('');
 const selectedCountry = ref(countriesList[0]); // Por defecto: Venezuela (+58)
 const rawPhoneNumber = ref('');
 const caseSymptoms = ref('');
+const patientCustomName = ref('');
 
 // Lista de Sedes Clínicas del Dr. Lisandro Márquez
 const sedesList = [
@@ -180,6 +181,9 @@ const selectedServiceObj = computed(() => {
 // Sincronizar datos de paciente al autenticarse o abrir el modal
 const syncUserData = () => {
   if (currentUser.value) {
+    if (!patientCustomName.value) {
+      patientCustomName.value = currentUser.value.nombre || '';
+    }
     if (currentUser.value.telefono && !rawPhoneNumber.value) {
       const ph = currentUser.value.telefono;
       // Tratar de asignar teléfono
@@ -200,6 +204,9 @@ watch(() => props.isOpen, (open) => {
     caseSymptoms.value = '';
 
     setupDatesRange();
+    if (currentUser.value) {
+      patientCustomName.value = currentUser.value.nombre || '';
+    }
     syncUserData();
     loadSedeSchedule(selectedSedeObj.value?.id || 1);
 
@@ -375,6 +382,12 @@ const submitBooking = async () => {
     return;
   }
 
+  const finalPatientName = patientCustomName.value.trim() || currentUser.value?.nombre || 'Paciente';
+  if (!finalPatientName) {
+    emit('toast', { msg: 'Por favor ingresa el nombre del paciente.', type: 'warning' });
+    return;
+  }
+
   loading.value = true;
   const fechaHora = `${selectedDate.value} ${selectedTime.value}`;
   const srvId = parseInt(selectedServiceId.value) || 1;
@@ -392,7 +405,7 @@ const submitBooking = async () => {
       sede_id: sedeId,
       sintomas: caseSymptoms.value.trim() || null,
       telefono: fullPhone,
-      nombre_paciente: currentUser.value?.nombre || 'Paciente',
+      nombre_paciente: finalPatientName,
       correo_paciente: currentUser.value?.correo || null
     };
 
@@ -413,7 +426,7 @@ const submitBooking = async () => {
       confirmedData.value = {
         citaId: data.id_cita || data.id || Math.floor(1000 + Math.random() * 9000),
         codigo: data.codigo || `#CIT-${data.id_cita || Math.floor(1000 + Math.random() * 9000)}`,
-        nombre: currentUser.value?.nombre || 'Paciente Registrado',
+        nombre: finalPatientName,
         correo: currentUser.value?.correo || '',
         telefono: fullPhone,
         servicio: selectedServiceObj.value.nombre_servicio,
@@ -425,9 +438,18 @@ const submitBooking = async () => {
         hora: selectedTime.value
       };
 
-      // Si el paciente no tenía teléfono guardado en perfil, actualizarlo
-      if (token.value && (!currentUser.value?.telefono || currentUser.value?.telefono !== fullPhone)) {
-        updatePatientProfile({ telefono: fullPhone }).catch(() => {});
+      // Si el paciente modificó su nombre real o no tenía teléfono guardado, actualizar su perfil
+      if (token.value) {
+        const updates = {};
+        if (currentUser.value?.nombre !== finalPatientName) {
+          updates.nombre = finalPatientName;
+        }
+        if (!currentUser.value?.telefono || currentUser.value?.telefono !== fullPhone) {
+          updates.telefono = fullPhone;
+        }
+        if (Object.keys(updates).length > 0) {
+          updatePatientProfile(updates).catch(() => {});
+        }
       }
 
       emit('toast', { msg: '¡Cita médica agendada y asegurada con éxito!', type: 'success' });
@@ -1039,18 +1061,23 @@ const downloadCalendar = () => {
               <!-- Datos de Contacto y Validación -->
               <div class="space-y-3">
                 
-                <!-- Nombre y Correo Vinculados a Google (No editables arbitrariamente) -->
+                <!-- Datos de Identidad y Contacto vinculados a Google -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-xs font-bold text-slate-800 mb-1">
-                      Nombre del Paciente (Google):
+                    <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                      <span>Nombre del Paciente: *</span>
+                      <span class="text-[10px] text-sky-700 font-bold bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100">Editable</span>
                     </label>
                     <input 
                       type="text" 
-                      :value="currentUser?.nombre" 
-                      disabled 
-                      class="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-xs font-semibold select-none"
+                      v-model="patientCustomName" 
+                      placeholder="Nombre y apellido completo"
+                      required
+                      class="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-xs font-bold focus:ring-2 focus:ring-sky-500 focus:outline-hidden shadow-2xs"
                     />
+                    <span class="text-[10px] text-slate-400 mt-1 block">
+                      Puedes modificar tu nombre real para la consulta médica.
+                    </span>
                   </div>
 
                   <div>
@@ -1064,6 +1091,9 @@ const downloadCalendar = () => {
                       disabled 
                       class="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-xs font-mono select-none"
                     />
+                    <span class="text-[10px] text-slate-400 mt-1 block">
+                      Cuenta oficial de Google vinculada.
+                    </span>
                   </div>
                 </div>
 

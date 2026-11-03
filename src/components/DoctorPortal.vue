@@ -671,38 +671,7 @@ const getWhatsAppPatientLink = (cita) => {
   return `https://wa.me/${phone || doctorData.whatsapp}?text=${msg}`;
 };
 
-const exportCSV = () => {
-  if (activeTab.value === 'pacientes') {
-    if (!pacientes.value.length) return;
-    let csv = 'ID,Nombre,Telefono,Correo,Total Citas,Ultima Cita,Estado\n';
-    pacientes.value.forEach(p => {
-      csv += `"${p.id}","${p.nombre || ''}","${p.telefono || ''}","${p.correo || ''}","${p.total_citas || 0}","${p.ultima_cita || 'N/A'}","${p.estado_ultima_cita || 'Sin cita'}"\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `Directorio_Pacientes_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    emit('toast', { msg: 'Directorio de pacientes exportado en CSV', type: 'success' });
-    return;
-  }
 
-  if (!citas.value.length) return;
-  let csv = 'ID,Codigo,Fecha y Hora,Paciente,Telefono,Correo,Servicio,Estado\n';
-  citas.value.forEach(c => {
-    csv += `"${c.id}","${c.codigo || ''}","${c.fecha_hora}","${c.paciente || ''}","${c.telefono || ''}","${c.correo || ''}","${c.servicio || ''}","${c.estado || ''}"\n`;
-  });
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.setAttribute('download', `Agenda_Dr_Lisandro_Marquez_${new Date().toISOString().split('T')[0]}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  emit('toast', { msg: 'Archivo CSV descargado con éxito', type: 'success' });
-};
 
 const downloadAssistantPDF = () => {
   if (!citas.value.length) {
@@ -1053,12 +1022,15 @@ const downloadAssistantPDF = () => {
             </div>
           </div>
 
-          <!-- FILTROS AVANZADOS POR SEDE Y FECHA RÁPIDA (SOLO PARA AGENDA DE CITAS) -->
-          <div v-if="activeTab === 'citas'" class="p-3 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-2 text-xs">
+          <!-- FILTROS AVANZADOS POR SEDE Y FECHA (SOLO PARA AGENDA DE CITAS) -->
+          <div v-if="activeTab === 'citas'" class="p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-2.5 text-xs">
             <!-- Filtro por Sede Médica -->
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-[11px] font-extrabold text-slate-700 flex items-center gap-1 min-w-[65px]">
-                <span>🏥 Sede:</span>
+              <span class="text-[11px] font-extrabold text-slate-700 flex items-center gap-1.5 min-w-[65px]">
+                <svg class="w-3.5 h-3.5 text-sky-700 stroke-current fill-none" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span>Sedes:</span>
               </span>
               <button 
                 type="button" 
@@ -1073,20 +1045,23 @@ const downloadAssistantPDF = () => {
                 :key="s.id"
                 type="button" 
                 @click="selectedSedeFilter = s.id"
-                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-1"
+                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-1.5"
                 :class="selectedSedeFilter === s.id ? 'bg-sky-700 text-white border-sky-700 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
               >
-                <span>📍 {{ s.nombre.split('—')[0].trim() }}</span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="selectedSedeFilter === s.id ? 'bg-sky-800 text-sky-100' : 'bg-slate-100 text-slate-600'">
+                <span>{{ s.nombre.split('—')[0].trim() }}</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold" :class="selectedSedeFilter === s.id ? 'bg-sky-800 text-sky-100' : 'bg-slate-100 text-slate-600'">
                   {{ citas.filter(c => c.sede_id === s.id).length }}
                 </span>
               </button>
             </div>
 
-            <!-- Filtro por Fecha Rápida -->
-            <div class="flex items-center gap-2 flex-wrap pt-2 border-t border-slate-200/70">
-              <span class="text-[11px] font-extrabold text-slate-700 flex items-center gap-1 min-w-[65px]">
-                <span>📅 Fecha:</span>
+            <!-- Filtro por Fecha -->
+            <div class="flex items-center gap-2 flex-wrap pt-2.5 border-t border-slate-200/70">
+              <span class="text-[11px] font-extrabold text-slate-700 flex items-center gap-1.5 min-w-[65px]">
+                <svg class="w-3.5 h-3.5 text-slate-700 stroke-current fill-none" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>Fechas:</span>
               </span>
               <button 
                 type="button" 
@@ -1099,11 +1074,11 @@ const downloadAssistantPDF = () => {
               <button 
                 type="button" 
                 @click="selectedDateQuickFilter = 'hoy'; customDateFilter = ''"
-                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-1"
+                class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-1.5"
                 :class="selectedDateQuickFilter === 'hoy' ? 'bg-amber-600 text-white border-amber-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
               >
-                <span>⚡ Citas de Hoy</span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="selectedDateQuickFilter === 'hoy' ? 'bg-white text-amber-900' : 'bg-amber-100 text-amber-900 font-extrabold'">
+                <span>Citas de Hoy</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="selectedDateQuickFilter === 'hoy' ? 'bg-white text-amber-900 font-extrabold' : 'bg-amber-100 text-amber-900 font-extrabold'">
                   {{ citasTodayCount }}
                 </span>
               </button>
@@ -1113,7 +1088,7 @@ const downloadAssistantPDF = () => {
                 class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer"
                 :class="selectedDateQuickFilter === 'semana' ? 'bg-slate-800 text-white border-slate-800 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
               >
-                🗓️ Esta Semana
+                Esta Semana
               </button>
               <button 
                 type="button" 
@@ -1121,7 +1096,7 @@ const downloadAssistantPDF = () => {
                 class="px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer"
                 :class="selectedDateQuickFilter === 'proximas' ? 'bg-slate-800 text-white border-slate-800 shadow-2xs' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'"
               >
-                ⏭️ Próximas
+                Próximas Citas
               </button>
               <div class="flex items-center gap-1">
                 <input 
@@ -1180,12 +1155,12 @@ const downloadAssistantPDF = () => {
                       'bg-slate-100 text-slate-700 border-slate-300': (c.estado || '').toLowerCase().includes('cancelada')
                     }"
                   >
-                    <option value="pendiente">🟡 Pendiente</option>
-                    <option value="confirmada">🟢 Confirmada</option>
-                    <option value="presente">🟣 Llegó / En Espera</option>
-                    <option value="completada">🔵 Completada</option>
-                    <option value="no_asistio">🔴 No asistió</option>
-                    <option value="cancelada_doctor">⚪ Cancelar por Doctor</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="confirmada">Confirmada</option>
+                    <option value="presente">Llegó / En Espera</option>
+                    <option value="completada">Completada</option>
+                    <option value="no_asistio">No asistió</option>
+                    <option value="cancelada_doctor">Cancelar por Doctor</option>
                   </select>
                 </td>
                 <td class="p-3 text-right whitespace-nowrap">
@@ -1195,10 +1170,12 @@ const downloadAssistantPDF = () => {
                       @click="openClinicalNote(c)" 
                       class="px-2.5 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
                       :class="c.notas_doctor ? 'bg-indigo-100 text-indigo-900 hover:bg-indigo-600 hover:text-white border border-indigo-200' : 'bg-slate-100 text-slate-700 hover:bg-sky-600 hover:text-white border border-slate-200'"
-                      :title="c.notas_doctor ? 'Ver o editar notas médicas de esta cita' : 'Añadir notas clínicas / diagnóstico a esta cita'"
+                      :title="c.notas_doctor ? 'Ver o editar notas médicas de esta cita' : 'Añadir notas clínicas y diagnóstico a esta cita'"
                     >
-                      <span>📝</span>
-                      <span>{{ c.notas_doctor ? 'Ficha / Notas' : '+ Ficha' }}</span>
+                      <svg class="w-3.5 h-3.5 stroke-current fill-none shrink-0" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      <span>{{ c.notas_doctor ? 'Ficha Médica' : '+ Ficha' }}</span>
                       <span v-if="c.notas_doctor" class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
                     </button>
                     <a :href="getWhatsAppPatientLink(c)" target="_blank" class="px-2.5 py-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-600 hover:text-white rounded-lg font-bold text-[11px] transition flex items-center gap-1.5" title="Chatear por WhatsApp">
@@ -1662,7 +1639,9 @@ const downloadAssistantPDF = () => {
                       class="px-2.5 py-1 bg-purple-100 hover:bg-purple-700 text-purple-900 hover:text-white rounded-lg font-bold text-[11px] transition cursor-pointer flex items-center gap-1.5 shadow-2xs border border-purple-200"
                       title="Ver expediente clínico integral y consultas de este paciente"
                     >
-                      <span>📂</span>
+                      <svg class="w-3.5 h-3.5 fill-none stroke-current shrink-0" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
                       <span>Expediente</span>
                     </button>
                     <a 
@@ -1699,17 +1678,7 @@ const downloadAssistantPDF = () => {
           </table>
         </div>
 
-        <!-- Footer Utilities -->
-        <div class="flex justify-end items-center pt-2 text-xs text-slate-500 flex-wrap gap-2">
-          <div class="flex gap-2">
-            <button type="button" @click="exportCSV" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition border border-slate-200 flex items-center gap-1.5 cursor-pointer">
-              <svg class="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              <span>Exportar CSV</span>
-            </button>
-          </div>
-        </div>
+
 
       </div>
 
@@ -1717,20 +1686,35 @@ const downloadAssistantPDF = () => {
   </div>
 
   <!-- MODAL 1: FICHA MÉDICA Y NOTAS CLÍNICAS PRIVADAS DEL DOCTOR -->
-  <div v-if="showClinicalNoteModal && activeCitaForNote" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl animate-pop-in space-y-4 max-h-[92vh] overflow-y-auto border border-slate-100">
+  <div v-if="showClinicalNoteModal && activeCitaForNote" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl animate-pop-in space-y-5 max-h-[92vh] overflow-y-auto border border-slate-100">
       
       <!-- Encabezado del Modal -->
-      <div class="flex justify-between items-center border-b border-slate-200 pb-3">
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-base shadow-2xs">
-            📋
+      <div class="flex justify-between items-center border-b border-slate-200 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+            <svg class="w-5 h-5 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
           </div>
           <div>
-            <h4 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
-              Ficha Médica de Consulta: #{{ activeCitaForNote.codigo || activeCitaForNote.id }}
-            </h4>
-            <p class="text-[11px] text-slate-500 font-medium">
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h4 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
+                Ficha Médica de Consulta #{{ activeCitaForNote.codigo || activeCitaForNote.id }}
+              </h4>
+              <span class="text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full"
+                :class="{
+                  'bg-amber-100 text-amber-900': (activeCitaForNote.estado || '').toLowerCase() === 'pendiente',
+                  'bg-emerald-100 text-emerald-900': (activeCitaForNote.estado || '').toLowerCase() === 'confirmada',
+                  'bg-indigo-100 text-indigo-900': (activeCitaForNote.estado || '').toLowerCase() === 'presente',
+                  'bg-sky-100 text-sky-900': (activeCitaForNote.estado || '').toLowerCase() === 'completada',
+                  'bg-rose-100 text-rose-900': (activeCitaForNote.estado || '').toLowerCase().includes('no_asistio')
+                }"
+              >
+                {{ activeCitaForNote.estado }}
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 font-medium mt-0.5">
               Registro clínico confidencial • Dr. Lisandro Márquez
             </p>
           </div>
@@ -1738,103 +1722,104 @@ const downloadAssistantPDF = () => {
         <button 
           type="button" 
           @click="showClinicalNoteModal = false" 
-          class="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-xl transition cursor-pointer"
+          class="w-9 h-9 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-2xl transition cursor-pointer"
+          title="Cerrar Ficha"
         >
           &times;
         </button>
       </div>
 
       <!-- Resumen del Paciente y Cita -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-        <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200/90 space-y-1.5">
           <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Datos del Paciente</span>
-          <strong class="text-sm text-slate-900 block">{{ activeCitaForNote.paciente }}</strong>
-          <span class="text-slate-600 block font-mono text-[11px]">{{ activeCitaForNote.correo || 'Sin correo registrado' }}</span>
-          <div class="flex items-center gap-2 pt-1">
-            <span class="font-mono text-slate-700 font-semibold">{{ activeCitaForNote.telefono || 'Sin teléfono' }}</span>
+          <strong class="text-sm sm:text-base text-slate-900 block font-black">{{ activeCitaForNote.paciente }}</strong>
+          <span class="text-slate-600 block font-mono text-xs">{{ activeCitaForNote.correo || 'Sin correo registrado' }}</span>
+          <div class="flex items-center gap-2 pt-1.5">
+            <span class="font-mono text-slate-700 font-bold text-xs">{{ activeCitaForNote.telefono || 'Sin teléfono' }}</span>
             <a 
               v-if="activeCitaForNote.telefono" 
               :href="getWhatsAppPatientLink(activeCitaForNote)" 
               target="_blank" 
-              class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold hover:bg-emerald-600 hover:text-white transition"
+              class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold hover:bg-emerald-600 hover:text-white transition flex items-center gap-1"
             >
-              WhatsApp
+              <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+              <span>WhatsApp</span>
             </a>
           </div>
         </div>
 
-        <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200/90 space-y-1.5">
           <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Detalles de la Consulta</span>
-          <strong class="text-xs text-sky-900 block">{{ activeCitaForNote.servicio }}</strong>
-          <div class="text-slate-700 text-[11px] font-medium">
-            <span>📍 {{ activeCitaForNote.sede }}</span>
+          <strong class="text-sm text-sky-950 block font-extrabold">{{ activeCitaForNote.servicio }}</strong>
+          <div class="flex items-center gap-1.5 text-slate-700 text-xs font-medium">
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0 stroke-current fill-none" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>{{ activeCitaForNote.sede }}</span>
           </div>
-          <div class="text-slate-700 text-[11px] font-mono font-bold">
-            <span>🗓️ {{ activeCitaForNote.fecha_hora }}</span>
-          </div>
-          <div class="flex items-center gap-2 pt-0.5">
-            <span class="text-[10px] text-slate-500">Estado:</span>
-            <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full"
-              :class="{
-                'bg-amber-100 text-amber-900': (activeCitaForNote.estado || '').toLowerCase() === 'pendiente',
-                'bg-emerald-100 text-emerald-900': (activeCitaForNote.estado || '').toLowerCase() === 'confirmada',
-                'bg-indigo-100 text-indigo-900': (activeCitaForNote.estado || '').toLowerCase() === 'presente',
-                'bg-sky-100 text-sky-900': (activeCitaForNote.estado || '').toLowerCase() === 'completada',
-                'bg-rose-100 text-rose-900': (activeCitaForNote.estado || '').toLowerCase().includes('no_asistio')
-              }"
-            >
-              {{ activeCitaForNote.estado }}
-            </span>
+          <div class="flex items-center gap-1.5 text-slate-700 text-xs font-mono font-bold">
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0 stroke-current fill-none" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>{{ activeCitaForNote.fecha_hora }}</span>
           </div>
         </div>
       </div>
 
       <!-- Motivo o Síntomas reportados por el paciente -->
-      <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-1">
-        <span class="font-extrabold text-amber-950 flex items-center gap-1 text-[11px]">
-          <span>💬</span>
+      <div class="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-1.5">
+        <span class="font-bold text-amber-950 flex items-center gap-1.5 text-xs">
+          <svg class="w-4 h-4 text-amber-700 stroke-current fill-none shrink-0" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
           <span>Motivo de Consulta o Síntomas Reportados por el Paciente:</span>
         </span>
-        <p class="text-amber-900 font-medium italic">
-          {{ activeCitaForNote.sintomas || 'El paciente no ingresó síntomas previos al agendar.' }}
+        <p class="text-amber-900 font-medium italic text-xs sm:text-sm pl-5.5 leading-relaxed">
+          "{{ activeCitaForNote.sintomas || 'El paciente no ingresó síntomas previos al agendar.' }}"
         </p>
       </div>
 
       <!-- Área de Notas Médicas y Diagnóstico del Doctor -->
-      <div class="space-y-1.5">
-        <label class="block text-xs font-extrabold text-slate-800 flex items-center justify-between">
-          <span class="flex items-center gap-1.5">
-            <span>🩺</span>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-600 stroke-current fill-none shrink-0" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
             <span>Notas Clínicas, Diagnóstico y Conducta Médica (Uso Privado):</span>
+          </label>
+          <span class="text-[11px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md font-semibold border border-indigo-100">
+            Confidencial • Solo para el Doctor
           </span>
-          <span class="text-[10px] text-indigo-600 font-semibold font-mono">Confidencial</span>
-        </label>
+        </div>
         <textarea
           v-model="doctorNoteEdit"
-          rows="5"
-          placeholder="Escriba aquí los hallazgos del examen físico, ecografía (renal, vesical, prostática), diagnóstico, tratamiento prescrito o indicaciones para el paciente..."
-          class="w-full p-3 rounded-2xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-white shadow-2xs font-sans leading-relaxed"
+          rows="7"
+          placeholder="Escriba aquí los hallazgos del examen físico, ecografía (renal, vesical, prostática), diagnóstico clínico, tratamiento prescrito o conducta para el paciente..."
+          class="w-full p-4 rounded-2xl border border-slate-300 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-white shadow-2xs font-sans leading-relaxed"
         ></textarea>
-        <span class="text-[10px] text-slate-400 block">
-          💡 Estas notas quedan registradas en el historial del paciente y solo pueden ser consultadas por el Dr. Lisandro Márquez.
+        <span class="text-[11px] text-slate-500 block">
+          Estas notas quedan archivadas de manera confidencial en el expediente del paciente y solo son visibles para usted.
         </span>
       </div>
 
       <!-- Cambio de Estado Rápido -->
-      <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between flex-wrap gap-2 text-xs">
+      <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between flex-wrap gap-2.5 text-xs">
         <span class="font-bold text-slate-700">Cambiar estado de la consulta:</span>
-        <div class="flex gap-1.5 flex-wrap">
+        <div class="flex gap-2 flex-wrap">
           <button
             v-for="st in [
-              { id: 'confirmada', label: 'Confirmada', color: 'bg-emerald-600' },
-              { id: 'presente', label: 'En Espera', color: 'bg-indigo-600' },
-              { id: 'completada', label: 'Completada', color: 'bg-sky-600' },
-              { id: 'no_asistio', label: 'Inasistencia', color: 'bg-rose-600' }
+              { id: 'confirmada', label: 'Confirmada', color: 'bg-emerald-600 hover:bg-emerald-700' },
+              { id: 'presente', label: 'En Espera / Llegó', color: 'bg-indigo-600 hover:bg-indigo-700' },
+              { id: 'completada', label: 'Completada', color: 'bg-sky-600 hover:bg-sky-700' },
+              { id: 'no_asistio', label: 'Inasistencia', color: 'bg-rose-600 hover:bg-rose-700' }
             ]"
             :key="st.id"
             type="button"
             @click="changeStatus(activeCitaForNote.id, st.id); activeCitaForNote.estado = st.id"
-            class="px-2.5 py-1 rounded-lg text-white text-[11px] font-bold cursor-pointer transition shadow-2xs"
+            class="px-3 py-1.5 rounded-xl text-white text-xs font-bold cursor-pointer transition shadow-2xs"
             :class="[st.color, (activeCitaForNote.estado || '').toLowerCase() === st.id ? 'ring-2 ring-slate-900 scale-105' : 'opacity-85 hover:opacity-100']"
           >
             {{ st.label }}
@@ -1843,11 +1828,11 @@ const downloadAssistantPDF = () => {
       </div>
 
       <!-- Botones de Acción -->
-      <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+      <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
         <button
           type="button"
           @click="showClinicalNoteModal = false"
-          class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
+          class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
         >
           Cerrar
         </button>
@@ -1855,9 +1840,11 @@ const downloadAssistantPDF = () => {
           type="button"
           @click="saveClinicalNote"
           :disabled="savingClinicalNote"
-          class="px-5 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold rounded-xl text-xs transition shadow-md disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+          class="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold rounded-xl text-xs transition shadow-md disabled:opacity-50 cursor-pointer flex items-center gap-2"
         >
-          <span>💾</span>
+          <svg class="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
           <span>{{ savingClinicalNote ? 'Guardando notas...' : 'Guardar Notas Médicas' }}</span>
         </button>
       </div>
@@ -1866,20 +1853,22 @@ const downloadAssistantPDF = () => {
   </div>
 
   <!-- MODAL 2: EXPEDIENTE INTEGRAL DEL PACIENTE -->
-  <div v-if="showPatientRecordModal" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-3xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl animate-pop-in space-y-4 max-h-[92vh] overflow-y-auto border border-slate-100">
+  <div v-if="showPatientRecordModal" class="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl animate-pop-in space-y-5 max-h-[92vh] overflow-y-auto border border-slate-100">
       
       <!-- Encabezado del Modal -->
-      <div class="flex justify-between items-center border-b border-slate-200 pb-3">
-        <div class="flex items-center gap-2.5">
-          <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-lg shadow-2xs">
-            📂
+      <div class="flex justify-between items-center border-b border-slate-200 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-100 text-purple-700 flex items-center justify-center shrink-0 shadow-2xs">
+            <svg class="w-5 h-5 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
           </div>
           <div>
-            <h4 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+            <h4 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
               Expediente Clínico del Paciente
             </h4>
-            <p class="text-[11px] text-slate-500 font-medium">
+            <p class="text-xs text-slate-500 font-medium mt-0.5">
               Historial médico longitudinal y registro de consultas • Dr. Lisandro Márquez
             </p>
           </div>
@@ -1887,7 +1876,8 @@ const downloadAssistantPDF = () => {
         <button 
           type="button" 
           @click="showPatientRecordModal = false" 
-          class="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-xl transition cursor-pointer"
+          class="w-9 h-9 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-2xl transition cursor-pointer"
+          title="Cerrar Expediente"
         >
           &times;
         </button>
@@ -1928,10 +1918,10 @@ const downloadAssistantPDF = () => {
               v-if="patientRecordData.paciente.telefono" 
               :href="getWhatsAppPatientDirectLink(patientRecordData.paciente)" 
               target="_blank" 
-              class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-2xs cursor-pointer"
             >
-              <span>💬</span>
-              <span>Chatear por WhatsApp</span>
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+              <span>WhatsApp</span>
             </a>
           </div>
         </div>
